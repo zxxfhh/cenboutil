@@ -1,0 +1,36 @@
+﻿cmd中：
+cd C:\Program Files\Consul\
+consul agent -dev -client 127.0.0.1 -ui
+consul agent -server -ui -client=0.0.0.0 -node=consul-1 -bootstrap-expect=1 -data-dir="C:\Program Files\Consul\Data"
+
+consul agent -config-file=C:\Program Files\Consul\consulconfig.json
+consul agent -data-dir=C:\Program Files\Consul\Data
+
+注册成服务
+集群方式(-node)：
+打开电脑的C:\Windows\System32\drivers\etc路径，编辑hosts文件: 127.0.0.1 consul-1
+打开cmd执行以下命令刷新dns缓存：ipconfig /flushdns
+sc create ConsulService binpath= "C:\Program Files\Consul\consul.exe agent -server -ui -client=0.0.0.0 -node=consul-1 -bootstrap-expect=1 -data-dir=\"C:\Program Files\Consul\Data\"" displayname= "Consul自启动服务服务"
+sc delete ConsulService
+
+
+本地方式：
+sc create ConsulService binpath= "C:\Program Files\Consul\consul.exe agent -server -ui -client=0.0.0.0 -bind=192.168.0.76 -node=192.168.0.76 -bootstrap-expect=1 -data-dir=\"C:\Program Files\Consul\Data\"" displayname= "Consul自启动服务服务"
+sc delete ConsulService
+
+
+consul agent是Consul的命令行工具，用于启动Consul代理。以下是一些常用的consul agent命令行参数的详细解释：
+-dev：启用开发模式。在开发模式下，Consul代理会使用本地存储，并且不会加入到任何集群中。这对于本地开发和测试非常有用。
+-config-file=<path/to/file>：指定配置文件的路径。可以使用该参数来指定一个包含Consul代理配置的JSON格式文件。
+-data-dir=<path/to/directory>：指定数据目录的路径。Consul代理使用该目录存储其状态，包括服务注册信息、健康检查结果等。
+-bind=<ip_address>：指定绑定的IP地址。Consul代理会监听该IP地址上的请求。默认情况下，Consul会绑定到所有可用的网络接口。
+-client=<ip_address>：指定客户端接口的IP地址。该参数用于指定Consul代理对外提供服务的IP地址，默认为127.0.0.1。
+-ui：启用Web界面。该参数会启动Consul的Web UI，可以通过浏览器访问http://<agent_address>:8500/ui来查看。
+-bootstrap：启用引导模式。在集群初始启动时，可以使用该参数来指定一个节点作为引导节点。引导节点负责初始化集群并帮助其他节点加入。
+-join=<ip_address>：指定要加入的集群成员的IP地址。使用该参数可以将Consul代理加入到现有的Consul集群中。
+-ui-dir:提供存放web-ui资源的路径，该目录必须是可读的
+-node：节点在集群中的名称，在一个集群中必须是唯一的，默认是该节点的主机名(代表一个机器)。
+-server：表面我们现在要启动服务器代理(agent)是服务模式的。Consul Agent的运行模式有两种，Server模式和Client模式。其区别简单来说就是Server模式的Agent可以被选举为Leader，而Client模式的不可以，当然还有其他区别，有兴趣大家可以自行了解。
+bootstrap-expect：是集群启动条件，指当服务器端模式(Server模式)的代理达到这个数目后，才开始运行。
+
+

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>Chat</title>
+</head>
+<body>
+    <div>
+        <input type="text" id="userInput" placeholder="Name" />
+        <input type="text" id="messageInput" placeholder="Message" />
+        <input type="button" id="sendButton" value="Send" />
+    </div>
+    <ul id="messagesList"></ul>
+    <script src="signalr.min.js"></script>
+    <script>
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("http://localhost:50072/signalr/chathub", {
+                        skipNegotiation: true, //针对webSocket为默认协议的时候，可以跳过协商
+                        transport: signalR.HttpTransportType.WebSockets
+                    })
+			.withAutomaticReconnect([3000, 4000, 10000, 10000])
+            .build();
+		connection.keepAliveIntervalInMilliseconds = 60 * 1000;  //60s
+		connection.serverTimeoutInMilliseconds = 130 * 1000;  //130s
+
+        connection.on("ReceiveMessage", message => {
+            const msg = document.createElement("li");
+            msg.textContent = `${message}`;
+            document.getElementById("messagesList").appendChild(msg);
+        });
+
+		connection.onclose(async () => {
+			console.log('SignalR连接关闭');
+		});
+
+        connection.start()
+		.then(function() {
+			console.log("SignalR连接成功");
+			var authorization = "65ZeIh3bj0Mu1iZiWFTNYLKjJShMZsDTAFC2M920NcFLhQy5mWKZF5idQEvDgrsbEx87dsVlL8auzyavg9x87zbV3j57K539uVAnKJ53uRZUs/zy3K/swERDs8a9aKQ+J0dKWTqlZEAP3kJt/LTA/h4kHhk3H9Rhqf/Hz21OmPBjjZF6MEPTCLnJ1k2OLFHaPhBYvxE21wshWlCkcMx3HN89oqEu+8uaGOedcNudWFo=";
+            connection.invoke("UserLogin", authorization).catch(err => console.log(err.toString()));
+        })
+		.catch(err => 
+			console.log(err.toString())
+		);
+
+        document.getElementById("sendButton").addEventListener("click", event => {
+            const user = document.getElementById("userInput").value;
+            const message = document.getElementById("messageInput").value;
+            connection.invoke("SendMessage", message).catch(err => console.log(err.toString()));
+            event.preventDefault();
+        });
+    </script>
+</body>
+</html>

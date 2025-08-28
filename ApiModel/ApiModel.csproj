@@ -1,0 +1,234 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{22CD9DDF-23AB-4815-AF9A-C4417657945D}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>ApiModel</RootNamespace>
+    <AssemblyName>ApiModel</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="CenBoCommon.Zxx, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>Lib\CenBoCommon.Zxx.dll</HintPath>
+    </Reference>
+    <Reference Include="CenboNew.ServiceLog, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>Lib\CenboNew.ServiceLog.dll</HintPath>
+    </Reference>
+    <Reference Include="DevComponents.DotNetBar.SuperGrid, Version=14.0.0.15, Culture=neutral, PublicKeyToken=c39c3242a43eee2b, processorArchitecture=MSIL" />
+    <Reference Include="DevComponents.DotNetBar2, Version=14.0.0.15, Culture=neutral, PublicKeyToken=c39c3242a43eee2b, processorArchitecture=MSIL" />
+    <Reference Include="DevComponents.Instrumentation, Version=14.0.0.15, Culture=neutral, PublicKeyToken=bc4a9d761ea44ef0" />
+    <Reference Include="NewLife.Agent, Version=10.3.8515.27839, Culture=neutral, PublicKeyToken=8343210f0b524456, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\library\NewLife.Agent.dll</HintPath>
+    </Reference>
+    <Reference Include="NewLife.Core, Version=10.2.2023.425, Culture=neutral, PublicKeyToken=8343210f0b524456, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\library\NewLife.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Deployment" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+    <Reference Include="WaitWindowForm, Version=1.0.2.8, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\library\WaitWindowForm.dll</HintPath>
+    </Reference>
+    <Reference Include="XCode, Version=11.7.2023.425, Culture=neutral, PublicKeyToken=8343210f0b524456, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\library\XCode.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Com\ByteHelper.cs" />
+    <Compile Include="Com\CodeTable.cs" />
+    <Compile Include="Com\CodeType.cs" />
+    <Compile Include="Com\EntitiesGen.cs" />
+    <Compile Include="Com\PubMehtod.cs" />
+    <Compile Include="Com\SugarSqlFormat.cs" />
+    <Compile Include="Com\Template.cs" />
+    <Compile Include="Com\TemplateSolrHttp.cs" />
+    <Compile Include="Com\TemplateSolr.cs" />
+    <Compile Include="Com\ZipSharpHelper.cs" />
+    <Compile Include="DbContext.cs" />
+    <Compile Include="EventSignSet.cs" />
+    <Compile Include="FrmMain.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FrmMain.Designer.cs">
+      <DependentUpon>FrmMain.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Com\SuperGridColumn.cs" />
+    <Compile Include="TemplateHelper.cs" />
+    <EmbeddedResource Include="FrmMain.resx">
+      <DependentUpon>FrmMain.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="solr-9.5.0\conf\lang\contractions_ca.txt" />
+    <Content Include="solr-9.5.0\conf\lang\contractions_fr.txt" />
+    <Content Include="solr-9.5.0\conf\lang\contractions_ga.txt" />
+    <Content Include="solr-9.5.0\conf\lang\contractions_it.txt" />
+    <Content Include="solr-9.5.0\conf\lang\hyphenations_ga.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stemdict_nl.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stoptags_ja.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_ar.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_bg.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_ca.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_cz.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_da.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_de.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_el.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_en.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_es.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_et.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_eu.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_fa.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_fi.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_fr.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_ga.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_gl.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_hi.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_hu.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_hy.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_id.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_it.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_ja.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_lv.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_nl.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_no.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_pt.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_ro.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_ru.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_sv.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_th.txt" />
+    <Content Include="solr-9.5.0\conf\lang\stopwords_tr.txt" />
+    <Content Include="solr-9.5.0\conf\lang\userdict_ja.txt" />
+    <Content Include="solr-9.5.0\conf\managed-schema.xml" />
+    <Content Include="solr-9.5.0\conf\protwords.txt" />
+    <Content Include="solr-9.5.0\conf\solrconfig.xml" />
+    <Content Include="solr-9.5.0\conf\stopwords.txt" />
+    <Content Include="solr-9.5.0\conf\synonyms.txt" />
+    <Content Include="solr-9.7.0\conf\lang\contractions_ca.txt" />
+    <Content Include="solr-9.7.0\conf\lang\contractions_fr.txt" />
+    <Content Include="solr-9.7.0\conf\lang\contractions_ga.txt" />
+    <Content Include="solr-9.7.0\conf\lang\contractions_it.txt" />
+    <Content Include="solr-9.7.0\conf\lang\hyphenations_ga.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stemdict_nl.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stoptags_ja.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_ar.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_bg.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_ca.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_cz.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_da.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_de.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_el.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_en.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_es.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_et.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_eu.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_fa.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_fi.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_fr.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_ga.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_gl.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_hi.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_hu.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_hy.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_id.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_it.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_ja.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_lv.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_nl.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_no.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_pt.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_ro.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_ru.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_sv.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_th.txt" />
+    <Content Include="solr-9.7.0\conf\lang\stopwords_tr.txt" />
+    <Content Include="solr-9.7.0\conf\lang\userdict_ja.txt" />
+    <Content Include="solr-9.7.0\conf\managed-schema.xml" />
+    <Content Include="solr-9.7.0\conf\protwords.txt" />
+    <Content Include="solr-9.7.0\conf\solrconfig.xml" />
+    <Content Include="solr-9.7.0\conf\stopwords.txt" />
+    <Content Include="solr-9.7.0\conf\synonyms.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="MySql.Data">
+      <Version>9.1.0</Version>
+    </PackageReference>
+    <PackageReference Include="Newtonsoft.Json">
+      <Version>13.0.3</Version>
+    </PackageReference>
+    <PackageReference Include="RazorEngine">
+      <Version>3.10.0</Version>
+    </PackageReference>
+    <PackageReference Include="SharpZipLib">
+      <Version>1.4.2</Version>
+    </PackageReference>
+    <PackageReference Include="SqlSugar">
+      <Version>5.1.4.171</Version>
+    </PackageReference>
+    <PackageReference Include="System.Data.SQLite.Core">
+      <Version>1.0.119</Version>
+    </PackageReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

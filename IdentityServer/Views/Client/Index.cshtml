@@ -1,0 +1,19 @@
+﻿
+<div class="welcome-page">
+    <h1>
+        客户端刷新
+    </h1>
+    <div class="col-sm-6">
+        <div class="card">
+            <div class="card-body">
+                @* <form asp-route="Client">
+                 
+                </form> *@
+                <form asp-controller="Client" asp-action="RefreshClient" method="post">
+                    <button class="btn btn-primary" name="button" value="RefreshClient">刷新</button>
+                </form>
+       
+            </div>
+        </div>
+    </div>
+</div>

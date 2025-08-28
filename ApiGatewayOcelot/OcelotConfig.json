@@ -1,0 +1,53 @@
+﻿{
+  "Routes": [
+    {
+      "DownstreamPathTemplate": "/Api/{url}", //下游服务的模板路由
+      "DownstreamScheme": "http", //下游请求方式
+      "UpstreamPathTemplate": "/Api/{url}", //上游路由模板,这个url会转到下游的url
+      "UpstreamHttpMethod": [ "Get", "Post" ], //上游的请求谓词限制
+      "ServiceName": "zhpdgsdxservice", //使用服务发现的时候,注册到consul的服务名
+      "UseServiceDiscovery": true, //是否使用服务发现
+      "LoadBalancerOptions": { //配置负载均衡
+        "Type": "CustomLoadBalancer"
+        //LeastConnection- 跟踪哪些服务正在处理请求并向现有请求最少的服务发送新请求。算法状态不分布在 Ocelot 的集群中。 
+        //RoundRobin - 遍历可用服务并发送请求。算法状态不分布在 Ocelot 的集群中。
+        //NoLoadBalancer - 从配置或服务发现中获取第一个可用服务。
+        //CookieSstickySessions- 使用 cookie 将所有请求粘贴到特定服务器。更多信息如下
+      },
+      "FileCacheOptions": { //缓存
+        "TtlSeconds": 0, //访问后会缓存地址N秒。0表示不缓存。
+        "Region": "zhpdgsdxservice" // 缓存区域
+      },
+      "RateLimitOptions": { //限流
+        "ClientWhitelist": [], //白名单
+        "EnableRateLimiting": true, //是否启用限流
+        "Period": "1s", //统计时间段：1s, 5m, 1h, 1d
+        "PeriodTimespan": 1, //多少秒之后客户端可以重试
+        "Limit": 5 //在统计时间段内允许的最大请求数量
+      },
+      "AuthenticationOptions": { //认证与授权
+        "AuthenticationProviderKey": "ApiGatewayOcelot",
+        "AllowScopes": []
+      },
+      "QoSOptions": { //熔断
+        "ExceptionsAllowedBeforeBreaking": 1, //多少个超时请求会触发熔断
+        "DurationOfBreak": 3000, //熔断的时间，单位为毫秒
+        "TimeoutValue": 20000 //如果下游请求的处理时间超过多少则视如该请求超时,单位为毫秒
+      }
+    }
+  ],
+  "GlobalConfiguration": { //全局配置
+    "ServiceDiscoveryProvider": { //配置Consul服务器
+      "Scheme": "http",
+      "Host": "192.168.0.9", //Consul的ip地址
+      "Port": 8500, //Consul的端口
+      "Type": "Consul"
+    },
+    "RateLimitOptions": {
+      "DisableRateLimitHeaders": false, //是否禁用X-Rate-Limit、Retry-After标头。
+      "QuotaExceededMessage": "请求过于频繁，请1秒后再试。", //触发限流时返回的消息。
+      "HttpStatusCode": 429, //触发限流时返回的http状态码（一般会写429）。
+      "ClientIdHeader": "CenBoOutLimit" //添加此标头后，请求不会被限流。
+    }
+  }
+}

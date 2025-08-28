@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "MqttHttpService": {
+      "commandName": "Project"
+    },
+    "Docker": {
+      "commandName": "Docker"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+@using System.Diagnostics
+
+@{
+    var version = FileVersionInfo.GetVersionInfo(typeof(IdentityServer4.Hosting.IdentityServerMiddleware).Assembly.Location).ProductVersion.Split('+').First();
+}
+
+<div class="welcome-page">
+    <h1>
+        <img src="~/icon.jpg">
+        欢迎访问浙江圣博创新科技有限公司
+        <small class="text-muted">(version @version)</small>
+    </h1>
+
+    <ul>
+        <li>
+            发现文档：
+            <a href="~/.well-known/openid-configuration">这里</a>
+        </li>
+        <li>
+            查看您当前会话信息：<a href="~/grants">这里</a>
+        </li>
+        <li>
+            查看您当前会话信息2：<a href="~/diagnostics">这里2</a>
+        </li>
+        <li>
+            查看您当前会话信息：<a href="~/client">变更客户端</a>
+        </li>
+    </ul>
+</div>

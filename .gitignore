@@ -1,0 +1,9 @@
+.vs
+Swagger.xml
+*.user
+*.config
+obj
+bin
+PublishProfiles
+.vscode
+.trae
