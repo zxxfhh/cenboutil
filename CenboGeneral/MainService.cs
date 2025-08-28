@@ -1,16 +1,16 @@
 ﻿using NewLife.Agent;
 
-namespace MqttHttpService
+namespace CenboGeneral
 {
     public partial class MainService : ServiceBase
     {
         public MainServer service;
         public MainService()
         {
-            ServiceName = "MqttHttpService";
+            ServiceName = "CenboGeneral";
 
-            DisplayName = "圣博WebApi和Mqtt通信互转服务";
-            Description = "用于后端调用mqtt通信互转情况！";
+            DisplayName = "圣博通用服务";
+            Description = "用于API控制、短信通知、邮件通知、看门狗等功能";
         }
 
         protected override void StartWork(string reason)

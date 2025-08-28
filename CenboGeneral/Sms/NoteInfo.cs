@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 
-namespace MqttHttpService
+namespace CenboGeneral
 {
     public class NoteInfo
     {

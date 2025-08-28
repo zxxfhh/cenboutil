@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 
-namespace MqttHttpService;
+namespace CenboGeneral;
 
 /// <summary>
 /// 邮件推送内容

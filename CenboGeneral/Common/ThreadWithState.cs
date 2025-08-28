@@ -1,4 +1,4 @@
-﻿namespace MqttHttpService
+﻿namespace CenboGeneral
 {
     public delegate void Handle<T>(T t);
 

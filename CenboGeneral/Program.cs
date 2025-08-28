@@ -1,5 +1,5 @@
 ﻿
-using MqttHttpService;
+using CenboGeneral;
 
 #if DEBUG
 Console.Title = "Mq控制http中转服务";

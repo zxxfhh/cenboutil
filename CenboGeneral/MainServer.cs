@@ -13,7 +13,7 @@ using System.ServiceModel;
 using System.ServiceModel.Channels;
 using System.Text;
 
-namespace MqttHttpService
+namespace CenboGeneral
 {
     public class MainServer
     {
@@ -633,7 +633,7 @@ namespace MqttHttpService
             var optionsBuilder = new MqttClientOptionsBuilder()
                 .WithTcpServer(MainSetting.Current.MQHost, 1883) // 要访问的mqtt服务端的 ip 和 端口号
                 .WithCredentials(MainSetting.Current.MQUser, MainSetting.Current.MQPass) // 要访问的mqtt服务端的用户名和密码
-                .WithClientId($"MqttHttpService_{SnowModel.Instance.NewId()}") // 设置客户端id
+                .WithClientId($"CenboGeneral_{SnowModel.Instance.NewId()}") // 设置客户端id
                 .WithCleanSession()
                 .WithKeepAlivePeriod(TimeSpan.FromSeconds(30))
                 .WithTlsOptions(new MqttClientTlsOptions

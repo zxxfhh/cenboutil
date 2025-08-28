@@ -17,7 +17,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IdentityServer", "IdentityS
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IdentityServerModel", "IdentityServerModel\IdentityServerModel.csproj", "{81C5B19A-1105-1628-CA7A-DAE722D3DCDB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MqttHttpService", "MqttHttpService\MqttHttpService.csproj", "{AEA50FB3-882C-DF41-B5B9-43ED61DD0B08}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CenboGeneral", "CenboGeneral\CenboGeneral.csproj", "{AEA50FB3-882C-DF41-B5B9-43ED61DD0B08}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ffmpeg.zxx", "Ffmpeg.zxx\Ffmpeg.zxx.csproj", "{520B7394-D497-3007-51BA-97E0492375F4}"
 EndProject

@@ -2,7 +2,7 @@
 using MimeKit;
 using NewLife.Log;
 
-namespace MqttHttpService
+namespace CenboGeneral
 {
     public class MailKitEmail
     {

@@ -1,7 +1,7 @@
 ﻿using NewLife.Configuration;
 using System.ComponentModel;
 
-namespace MqttHttpService
+namespace CenboGeneral
 {
     /// <summary>中转服务配置</summary>
     [Description("中转服务配置")]

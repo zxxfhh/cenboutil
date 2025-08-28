@@ -1,6 +1,6 @@
 ﻿using NewLife.Http;
 
-namespace MqttHttpService
+namespace CenboGeneral
 {
     /// <summary>自定义控制器。包含多个服务</summary>
     public class HttpComServer : IHttpHandler

@@ -1,4 +1,4 @@
-﻿namespace MqttHttpService
+﻿namespace CenboGeneral
 {
     public class HttpMqttCheck
     {
