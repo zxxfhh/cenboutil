@@ -41,7 +41,8 @@
       "Scheme": "http",
       "Host": "192.168.0.9", //Consul的ip地址
       "Port": 8500, //Consul的端口
-      "Type": "Consul"
+      "Type": "Consul",
+      "Token": "Cenbo!@#123" // 添加 ACL Token
     },
     "RateLimitOptions": {
       "DisableRateLimitHeaders": false, //是否禁用X-Rate-Limit、Retry-After标头。
