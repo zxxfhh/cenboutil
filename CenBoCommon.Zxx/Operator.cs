@@ -641,7 +641,7 @@ namespace CenBoCommon.Zxx
         public static int DiffMinutes(this DateTime startTime, DateTime endTime)
         {
             TimeSpan daysSpan = new TimeSpan(endTime.Ticks - startTime.Ticks);
-            return daysSpan.Minutes;
+            return (int)Math.Ceiling(daysSpan.TotalMinutes);
         }
 
         /// <summary>
@@ -653,7 +653,7 @@ namespace CenBoCommon.Zxx
         public static int DiffHours(this DateTime startTime, DateTime endTime)
         {
             TimeSpan daysSpan = new TimeSpan(endTime.Ticks - startTime.Ticks);
-            return daysSpan.Hours;
+            return (int)Math.Ceiling(daysSpan.TotalHours);
         }
 
         /// <summary>
@@ -665,7 +665,7 @@ namespace CenBoCommon.Zxx
         public static int DiffDays(this DateTime startTime, DateTime endTime)
         {
             TimeSpan daysSpan = new TimeSpan(endTime.Ticks - startTime.Ticks);
-            return daysSpan.Days;
+            return (int)Math.Ceiling(daysSpan.TotalDays);
         }
 
         /// <summary>
