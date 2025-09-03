@@ -800,10 +800,22 @@ namespace CenboGeneral
             try
             {
                 if (!MainSetting.Current.IsFwqRestart) return;
+                // 检测操作系统并执行相应的命令
+                bool isSuccess;
+                string resultMessage;
 
+                if (Environment.OSVersion.Platform == PlatformID.Unix)
+                {
+                    // Linux系统，以root执行
+                    (isSuccess, resultMessage) = RunLinuxCmd("reboot");
+                }
+                else
+                {
+                    // Windows系统，以管理员模式执行
+                    (isSuccess, resultMessage) = RunWindowCmd("shutdown /r /t 10");
+                }
 
-
-                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"服务器重启成功", "服务器重启");
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"服务器重启{(isSuccess?"成功":"失败")}：{resultMessage}", "服务器重启");
             }
             catch (Exception ex)
             {
