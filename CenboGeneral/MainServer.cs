@@ -24,6 +24,10 @@ namespace CenboGeneral
         /// </summary>
         private TimerX timerwatchdog = null;
         /// <summary>
+        /// 每天6点重启服务器定时器
+        /// </summary>
+        private TimerX timerfwqrestart = null;
+        /// <summary>
         /// Mqtt重连失败次数
         /// </summary>
         private int mqttConnectFailCount = 0;
@@ -33,6 +37,7 @@ namespace CenboGeneral
         public void Stop()
         {
             timerwatchdog.Dispose();
+            timerfwqrestart.Dispose();
             var httpport = MainSetting.Current.HttpPort;
             if (_httpServer != null) _httpServer.Stop("服务停止");
             ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"服务端口[{httpport}]关闭成功", "结束服务");
@@ -53,6 +58,10 @@ namespace CenboGeneral
             //2分钟检测一次
             timerwatchdog = new TimerX(WatchDog, null, 30 * 1000, 1000 * 60 * 2);
             ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "服务看门狗定时器(2分钟1次)开启成功", "开启服务");
+
+            var timefwq = DateTime.Now.Date.AddHours(6);
+            timerfwqrestart = new TimerX(FwqRestart, null, timefwq, 1000 * 60 * 60 * 24);
+            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "服务器重启定时器(每天6点)开启成功", "开启服务");
 
             var obj = new object[] { };
             ThreadWithState<object[]> tws = new ThreadWithState<object[]>(obj, MqttConnect);
@@ -780,5 +789,28 @@ namespace CenboGeneral
 
         #endregion
 
+        #region 服务器重启
+
+        /// <summary>
+        /// 服务器重启
+        /// </summary>
+        /// <param name="obj"></param>
+        private void FwqRestart(object? obj)
+        {
+            try
+            {
+                if (!MainSetting.Current.IsFwqRestart) return;
+
+
+
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"服务器重启成功", "服务器重启");
+            }
+            catch (Exception ex)
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, ex.ToString(), "服务器重启", LOG_TYPE.ErrorLog);
+            }
+        }
+
+        #endregion
     }
 }

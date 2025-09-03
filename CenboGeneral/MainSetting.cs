@@ -32,6 +32,7 @@ namespace CenboGeneral
         [Description("短信调用Url")]
         public String SmsUrl { get; set; } = "http://dx.zjsjy.gov/SendSmsService/SmpWebService.asmx";
 
+
         /// <summary>发件人邮箱地址</summary>
         [Description("发件人邮箱地址")]
         public String SendEmail { get; set; } = "zhangxx@cenbo.com";
@@ -52,6 +53,9 @@ namespace CenboGeneral
         [Description("收件人邮箱地址集合(逗号隔开)")]
         public String ReceiveEmails { get; set; } = "609912601@qq.com";
 
+        /// <summary>是否每天6点重启服务器</summary>
+        [Description("是否每天6点重启服务器")]
+        public Boolean IsFwqRestart { get; set; } = false;
     }
 }
 
