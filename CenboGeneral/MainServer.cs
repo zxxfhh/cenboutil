@@ -9,6 +9,7 @@ using Newtonsoft.Json.Linq;
 using System.Buffers;
 using System.Diagnostics;
 using System.Net;
+using System.Security.Principal;
 using System.ServiceModel;
 using System.ServiceModel.Channels;
 using System.Text;
@@ -20,9 +21,13 @@ namespace CenboGeneral
         public HttpServer _httpServer = null;
         private List<HttpMqttCheck> cmdlist = new List<HttpMqttCheck>();
         /// <summary>
-        /// 看门狗定时器
+        /// 常规服务看守定时器
         /// </summary>
-        private TimerX timerwatchdog = null;
+        private TimerX timergeneraldog = null;
+        /// <summary>
+        /// 业务服务看守定时器
+        /// </summary>
+        private TimerX timerbusinessdog = null;
         /// <summary>
         /// 每天6点重启服务器定时器
         /// </summary>
@@ -36,11 +41,11 @@ namespace CenboGeneral
 
         public void Stop()
         {
-            timerwatchdog.Dispose();
-            timerfwqrestart.Dispose();
-            var httpport = MainSetting.Current.HttpPort;
-            if (_httpServer != null) _httpServer.Stop("服务停止");
-            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"服务端口[{httpport}]关闭成功", "结束服务");
+            timergeneraldog?.Dispose();
+            timerfwqrestart?.Dispose();
+            timerbusinessdog?.Dispose();
+            _httpServer?.Stop("服务停止");
+            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"服务端口[{MainSetting.Current.HttpPort}]关闭成功", "结束服务");
         }
 
         public void Start()
@@ -56,8 +61,8 @@ namespace CenboGeneral
             ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"Http端口监听成功{_httpServer.Port}", "开启服务");
 
             //2分钟检测一次
-            timerwatchdog = new TimerX(WatchDog, null, 30 * 1000, 1000 * 60 * 2);
-            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "服务看门狗定时器(2分钟1次)开启成功", "开启服务");
+            timergeneraldog = new TimerX(GeneralDog, null, 30 * 1000, 1000 * 60 * 2);
+            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "常规服务看守定时器(2分钟1次)开启成功", "开启服务");
 
             var timefwq = DateTime.Now.Date.AddHours(6);
             timerfwqrestart = new TimerX(FwqRestart, null, timefwq, 1000 * 60 * 60 * 24);
@@ -242,6 +247,13 @@ namespace CenboGeneral
             };
             try
             {
+                if (!CheckRestartPermission())
+                {
+                    result.message = "服务没有管理员权限。";
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"服务没有管理员权限。", "指令执行");
+                    return result;
+                }
+
                 // 检测操作系统并执行相应的命令
                 bool isSuccess;
                 string resultMessage;
@@ -271,11 +283,11 @@ namespace CenboGeneral
                 }
 
                 ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                    $"命令执行{(isSuccess ? "成功" : "失败")}：{command} -> {resultMessage}", "CMD");
+                    $"命令执行{(isSuccess ? "成功" : "失败")}：{command} -> {resultMessage}", "指令执行");
             }
             catch (Exception ex)
             {
-                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, ex.ToString(), "CMD", LOG_TYPE.ErrorLog);
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, ex.ToString(), "指令执行", LOG_TYPE.ErrorLog);
                 result.message = $"执行异常：{ex.Message}";
             }
 
@@ -769,21 +781,51 @@ namespace CenboGeneral
 
         #endregion
 
-        #region 服务看门狗
+        #region 常规服务看守
 
         /// <summary>
-        /// 服务看门狗
+        /// 常规服务看守
         /// </summary>
         /// <param name="obj"></param>
-        private void WatchDog(object? obj)
+        private void GeneralDog(object? obj)
         {
             try
             {
-                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"短信发送", "服务看门狗");
+                if (!CheckRestartPermission())
+                {
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"服务没有管理员权限。", "常规服务看守");
+                    return;
+                }
+
+                //考虑windows和linux(docker)
+                List<string> serviceList= new List<string>();
+                serviceList.Add("mysqld");
+                serviceList.Add("docker");
+
+                //考虑windows和linux(docker)
+                List<string> dockerOrWinList = new List<string>();
+                dockerOrWinList.Add("mysql");
+                dockerOrWinList.Add("rabbitmq");
+                dockerOrWinList.Add("consul");
+                dockerOrWinList.Add("nginx");
+                dockerOrWinList.Add("redis");
+                dockerOrWinList.Add("kkfileview");
+
+                //只考虑linux(docker)
+                List<string> dockerOnlyList = new List<string>();
+                dockerOnlyList.Add("tidb");
+                dockerOnlyList.Add("tendisplus");
+                dockerOnlyList.Add("easysearch01");
+                dockerOnlyList.Add("easysearch02");
+                dockerOnlyList.Add("esconsole");
+                
+
+
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"短信发送", "常规服务看守");
             }
             catch (Exception ex)
             {
-                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, ex.ToString(), "服务看门狗", LOG_TYPE.ErrorLog);
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, ex.ToString(), "常规服务看守", LOG_TYPE.ErrorLog);
             }
         }
 
@@ -800,6 +842,11 @@ namespace CenboGeneral
             try
             {
                 if (!MainSetting.Current.IsFwqRestart) return;
+                if (!CheckRestartPermission())
+                {
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"服务没有管理员权限。", "服务器重启");
+                    return;
+                }
                 // 检测操作系统并执行相应的命令
                 bool isSuccess;
                 string resultMessage;
@@ -815,11 +862,28 @@ namespace CenboGeneral
                     (isSuccess, resultMessage) = RunWindowCmd("shutdown /r /t 10");
                 }
 
-                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"服务器重启{(isSuccess?"成功":"失败")}：{resultMessage}", "服务器重启");
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"服务器重启{(isSuccess ? "成功" : "失败")}：{resultMessage}", "服务器重启");
             }
             catch (Exception ex)
             {
                 ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, ex.ToString(), "服务器重启", LOG_TYPE.ErrorLog);
+            }
+        }
+
+        // 可以考虑增加权限检查
+        private bool CheckRestartPermission()
+        {
+            if (Environment.OSVersion.Platform == PlatformID.Unix)
+            {
+                // 检查是否有sudo权限
+                var (success, _) = RunLinuxCmd("sudo -n true");
+                return success;
+            }
+            else
+            {
+                // 检查是否以管理员身份运行
+                return new WindowsPrincipal(WindowsIdentity.GetCurrent())
+                    .IsInRole(WindowsBuiltInRole.Administrator);
             }
         }
 
