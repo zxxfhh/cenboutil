@@ -439,9 +439,10 @@ namespace CenboGeneral
                 var outputTask = process.StandardOutput.ReadToEndAsync();
                 var errorTask = process.StandardError.ReadToEndAsync();
 
-                // 等待进程完成，最多3秒
-                bool finished = process.WaitForExit(3000);
-
+                // 等待进程完成，最多5秒
+                int waittime = 5000;
+                if (cmd.ToLower().Contains("mysql")) waittime = 10000;
+                bool finished = process.WaitForExit(waittime);
                 if (!finished)
                 {
                     // 超时，强制终止进程
@@ -459,7 +460,7 @@ namespace CenboGeneral
                             $"强制终止进程失败: {killEx.Message}", "CMD", LOG_TYPE.ErrorLog);
                     }
 
-                    resultstr = "错误: 命令执行超时（3秒）";
+                    resultstr = $"错误: 命令执行超时（{waittime / 1000}秒）";
                     return (false, resultstr);
                 }
 
@@ -476,7 +477,7 @@ namespace CenboGeneral
                 {
                     outputParts.Add($"输出: {output.Trim()}");
                 }
-                if (!string.IsNullOrWhiteSpace(error))
+                else if (!string.IsNullOrWhiteSpace(error))
                 {
                     outputParts.Add($"错误: {error.Trim()}");
                 }
@@ -535,6 +536,7 @@ namespace CenboGeneral
                 var model = JsonConvert.DeserializeObject<NoteInfo>(data);
                 if (model != null)
                 {
+                    if (model.AddresseeTel.IsZxxNullOrEmpty()) model.AddresseeTel = MainSetting.Current.NoteDefaultTel;
                     string res = "失败";
                     string resxml = "";
                     // 配置绑定和地址
@@ -655,8 +657,8 @@ namespace CenboGeneral
                 .WithTcpServer(MainSetting.Current.MQHost, 1883) // 要访问的mqtt服务端的 ip 和 端口号
                 .WithCredentials(MainSetting.Current.MQUser, MainSetting.Current.MQPass) // 要访问的mqtt服务端的用户名和密码
                 .WithClientId($"CenboGeneral_{SnowModel.Instance.NewId()}") // 设置客户端id
-                .WithCleanSession()
-                .WithKeepAlivePeriod(TimeSpan.FromSeconds(30))
+                .WithCleanSession(false)
+                .WithKeepAlivePeriod(TimeSpan.FromSeconds(15))
                 .WithTlsOptions(new MqttClientTlsOptions
                 {
                     UseTls = false  // 是否使用 tls加密
@@ -791,41 +793,247 @@ namespace CenboGeneral
         {
             try
             {
+                if (!MainSetting.Current.IsGeneralDog) return;
                 if (!CheckRestartPermission())
                 {
-                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"服务没有管理员权限。", "常规服务看守");
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "服务没有管理员权限", "常规服务看守");
                     return;
                 }
 
-                //考虑windows和linux(docker)
-                List<string> serviceList= new List<string>();
-                serviceList.Add("mysqld");
-                serviceList.Add("docker");
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "开始执行常规服务看守检查", "常规服务看守");
 
-                //考虑windows和linux(docker)
-                List<string> dockerOrWinList = new List<string>();
-                dockerOrWinList.Add("mysql");
-                dockerOrWinList.Add("rabbitmq");
-                dockerOrWinList.Add("consul");
-                dockerOrWinList.Add("nginx");
-                dockerOrWinList.Add("redis");
-                dockerOrWinList.Add("kkfileview");
+                // 检查系统服务和Docker容器
+                if (Environment.OSVersion.Platform == PlatformID.Unix)
+                {
+                    CheckLinuxServices();
+                }
+                else
+                {
+                    CheckWindowsServices();
+                }
 
-                //只考虑linux(docker)
-                List<string> dockerOnlyList = new List<string>();
-                dockerOnlyList.Add("tidb");
-                dockerOnlyList.Add("tendisplus");
-                dockerOnlyList.Add("easysearch01");
-                dockerOnlyList.Add("easysearch02");
-                dockerOnlyList.Add("esconsole");
-                
-
-
-                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"短信发送", "常规服务看守");
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "常规服务看守检查完成", "常规服务看守");
             }
             catch (Exception ex)
             {
                 ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, ex.ToString(), "常规服务看守", LOG_TYPE.ErrorLog);
+            }
+        }
+
+        /// <summary>
+        /// 检查Linux系统服务
+        /// </summary>
+        private void CheckLinuxServices()
+        {
+            // 系统服务列表
+            List<string> systemServices = new List<string>
+            {
+                "mysqld",
+                "mysql",
+                "docker"
+            };
+
+            // Docker容器列表
+            List<string> dockerContainers = new List<string>
+            {
+                "mysql",
+                "rabbitmq",
+                "consul",
+                "nginx",
+                "redis",
+                "kkfileview",
+                "tidb",
+                "tendisplus",
+                "easysearch01",
+                "easysearch02",
+                "esconsole"
+            };
+
+            // 检查系统服务
+            foreach (string service in systemServices)
+            {
+                CheckAndRestartLinuxService(service);
+            }
+
+            // 检查Docker容器
+            foreach (string container in dockerContainers)
+            {
+                CheckAndRestartDockerContainer(container);
+            }
+        }
+
+        /// <summary>
+        /// 检查Windows系统服务
+        /// </summary>
+        private void CheckWindowsServices()
+        {
+            // Windows服务列表
+            List<string> windowsServices = new List<string>
+            {
+                "MySQL57",
+                "MySQL80",
+                "RabbitMQ",
+                "ConsulService",
+                "Nginx",
+                "Redis"
+            };
+            //启动成功后程序监听8012端口
+            string kkfileview = "C:\\kkFileView-4.1.0\\bin\\startup.bat";
+            // 检查Windows服务
+            foreach (string service in windowsServices)
+            {
+                CheckAndRestartWindowsService(service);
+            }
+        }
+
+        /// <summary>
+        /// 检查并重启Windows系统服务
+        /// </summary>
+        /// <param name="serviceName">服务名称</param>
+        private void CheckAndRestartWindowsService(string serviceName)
+        {
+            try
+            {
+                // 检查服务状态
+                var (checkSuccess, checkResult) = RunWindowCmd($"sc query \"{serviceName}\"");
+
+                if (checkSuccess && checkResult.Contains("RUNNING"))
+                {
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                        $"Windows服务 [{serviceName}] 运行正常", "常规服务看守");
+                    return;
+                }
+
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"Windows服务 [{serviceName}] 状态异常，尝试重启", "常规服务看守");
+
+                // 尝试重启服务
+                var (restartSuccess, restartResult) = RunWindowCmd($"net stop \"{serviceName}\" & net start \"{serviceName}\"");
+
+                if (restartSuccess)
+                {
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                        $"Windows服务 [{serviceName}] 重启成功", "常规服务看守");
+                }
+                else
+                {
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                        $"Windows服务 [{serviceName}] 重启失败：{restartResult}", "常规服务看守", LOG_TYPE.ErrorLog);
+                }
+            }
+            catch (Exception ex)
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"检查Windows服务 [{serviceName}] 时发生异常：{ex.Message}", "常规服务看守", LOG_TYPE.ErrorLog);
+            }
+        }
+
+        /// <summary>
+        /// 检查并重启Linux系统服务
+        /// </summary>
+        /// <param name="serviceName">服务名称</param>
+        private void CheckAndRestartLinuxService(string serviceName)
+        {
+            try
+            {
+                // 检查服务状态
+                var (checkSuccess, checkResult) = RunLinuxCmd($"systemctl is-active {serviceName}");
+
+                if (checkSuccess && checkResult.Contains("active"))
+                {
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                        $"系统服务 [{serviceName}] 运行正常", "常规服务看守");
+                    return;
+                }
+
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"系统服务 [{serviceName}] 状态异常，尝试重启", "常规服务看守");
+
+                // 尝试重启服务
+                var (restartSuccess, restartResult) = RunLinuxCmd($"systemctl restart {serviceName}");
+
+                if (restartSuccess)
+                {
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                        $"系统服务 [{serviceName}] 重启成功", "常规服务看守");
+                }
+                else
+                {
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                        $"系统服务 [{serviceName}] 重启失败：{restartResult}", "常规服务看守", LOG_TYPE.ErrorLog);
+                }
+            }
+            catch (Exception ex)
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"检查系统服务 [{serviceName}] 时发生异常：{ex.Message}", "常规服务看守", LOG_TYPE.ErrorLog);
+            }
+        }
+
+        /// <summary>
+        /// 检查并重启Docker容器
+        /// </summary>
+        /// <param name="containerName">容器名称</param>
+        private void CheckAndRestartDockerContainer(string containerName)
+        {
+            try
+            {
+                // 检查容器状态
+                string checkCmd = Environment.OSVersion.Platform == PlatformID.Unix
+                    ? $"docker ps --filter \"name={containerName}\" --format \"table {{{{.Names}}}}\\t{{{{.Status}}}}\""
+                    : $"docker ps --filter \"name={containerName}\" --format \"table {{.Names}}\\t{{.Status}}\"";
+
+                bool checkSuccess;
+                string checkResult;
+
+                if (Environment.OSVersion.Platform == PlatformID.Unix)
+                {
+                    (checkSuccess, checkResult) = RunLinuxCmd(checkCmd);
+                }
+                else
+                {
+                    (checkSuccess, checkResult) = RunWindowCmd(checkCmd);
+                }
+
+                if (checkSuccess && checkResult.Contains("Up"))
+                {
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                        $"Docker容器 [{containerName}] 运行正常", "常规服务看守");
+                    return;
+                }
+
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"Docker容器 [{containerName}] 状态异常，尝试重启", "常规服务看守");
+
+                // 尝试重启容器
+                string restartCmd = $"docker restart {containerName}";
+                bool restartSuccess;
+                string restartResult;
+
+                if (Environment.OSVersion.Platform == PlatformID.Unix)
+                {
+                    (restartSuccess, restartResult) = RunLinuxCmd(restartCmd);
+                }
+                else
+                {
+                    (restartSuccess, restartResult) = RunWindowCmd(restartCmd);
+                }
+
+                if (restartSuccess)
+                {
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                        $"Docker容器 [{containerName}] 重启成功", "常规服务看守");
+                }
+                else
+                {
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                        $"Docker容器 [{containerName}] 重启失败：{restartResult}", "常规服务看守", LOG_TYPE.ErrorLog);
+                }
+            }
+            catch (Exception ex)
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"检查Docker容器 [{containerName}] 时发生异常：{ex.Message}", "常规服务看守", LOG_TYPE.ErrorLog);
             }
         }
 
@@ -847,6 +1055,9 @@ namespace CenboGeneral
                     ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"服务没有管理员权限。", "服务器重启");
                     return;
                 }
+
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "开始执行服务器重启", "服务器重启");
+
                 // 检测操作系统并执行相应的命令
                 bool isSuccess;
                 string resultMessage;

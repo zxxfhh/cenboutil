@@ -33,6 +33,11 @@ namespace CenboGeneral
         public String SmsUrl { get; set; } = "http://dx.zjsjy.gov/SendSmsService/SmpWebService.asmx";
 
 
+        /// <summary>短信通知默认号码(,隔开)</summary>
+        [Description("短信通知默认号码(,隔开)")]
+        public String NoteDefaultTel { get; set; } = "680574";
+
+
         /// <summary>发件人邮箱地址</summary>
         [Description("发件人邮箱地址")]
         public String SendEmail { get; set; } = "zhangxx@cenbo.com";
@@ -53,9 +58,14 @@ namespace CenboGeneral
         [Description("收件人邮箱地址集合(逗号隔开)")]
         public String ReceiveEmails { get; set; } = "609912601@qq.com";
 
+
         /// <summary>是否每天6点重启服务器</summary>
         [Description("是否每天6点重启服务器")]
         public Boolean IsFwqRestart { get; set; } = false;
+
+        /// <summary>是否启用常规服务看守</summary>
+        [Description("是否启用常规服务看守")]
+        public Boolean IsGeneralDog { get; set; } = true;
     }
 }
 

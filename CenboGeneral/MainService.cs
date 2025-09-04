@@ -9,7 +9,7 @@ namespace CenboGeneral
         {
             ServiceName = "CenboGeneral";
 
-            DisplayName = "圣博通用服务";
+            DisplayName = "圣博通用和守护服务";
             Description = "用于API控制、短信通知、邮件通知、看门狗等功能";
         }
 
