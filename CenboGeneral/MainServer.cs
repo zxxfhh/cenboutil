@@ -2,6 +2,7 @@
 using CenboNew.ServiceLog;
 using MQTTnet;
 using MQTTnet.Protocol;
+using NewLife.Agent;
 using NewLife.Http;
 using NewLife.Threading;
 using Newtonsoft.Json;
@@ -255,8 +256,8 @@ namespace CenboGeneral
                 }
 
                 // 检测操作系统并执行相应的命令
-                bool isSuccess;
-                string resultMessage;
+                bool isSuccess = false;
+                string resultMessage = "";
 
                 if (Environment.OSVersion.Platform == PlatformID.Unix)
                 {
@@ -853,13 +854,13 @@ namespace CenboGeneral
             // 检查系统服务
             foreach (string service in systemServices)
             {
-                CheckAndRestartLinuxService(service);
+                LinuxServiceDog(service);
             }
 
             // 检查Docker容器
             foreach (string container in dockerContainers)
             {
-                CheckAndRestartDockerContainer(container);
+                DockerContainerDog(container);
             }
         }
 
@@ -878,12 +879,28 @@ namespace CenboGeneral
                 "Nginx",
                 "Redis"
             };
-            //启动成功后程序监听8012端口
-            string kkfileview = "C:\\kkFileView-4.1.0\\bin\\startup.bat";
+            //启动kkfileview程序(不要显示界面)，监听8012端口被占用说明程序启动成功。
+            //string kkfileview = "C:\\kkFileView-4.1.0\\bin\\startup.bat";
+            string kkfileview = "I:\\Winds服务器环境\\kkFileView-4.1.0\\bin\\startup.bat";
+
+
             // 检查Windows服务
             foreach (string service in windowsServices)
             {
-                WindowsServiceDog(service);
+                const int maxRetries = 3;
+                int currentAttempt = 0;
+                while (currentAttempt < maxRetries)
+                {
+                    currentAttempt++;
+                    try
+                    {
+                        var isSuccess = WindowsServiceDog(service);
+                        if (isSuccess) break;
+                    }
+                    catch { }
+                    // 等待一段时间后重试，递增等待时间：1秒、2秒、3秒
+                    Thread.Sleep(1000 * currentAttempt);
+                }
             }
         }
 
@@ -891,41 +908,38 @@ namespace CenboGeneral
         /// 检查并重启Windows系统服务
         /// </summary>
         /// <param name="serviceName">服务名称</param>
-        private void WindowsServiceDog(string serviceName)
+        private bool WindowsServiceDog(string serviceName)
         {
+            bool restartSuccess = false;
+            string resultMessage = "";
             try
             {
                 // 检查服务状态
                 var (checkSuccess, checkResult) = RunWindowCmd($"sc query \"{serviceName}\"");
-
                 if (checkSuccess && checkResult.Contains("RUNNING"))
                 {
                     ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
                         $"Windows服务 [{serviceName}] 运行正常", "常规服务看守");
-                    return;
+                    return true;
                 }
-
                 // 尝试重启服务
-                var (restartSuccess, restartResult) = RunWindowCmd($"net stop \"{serviceName}\" & net start \"{serviceName}\"");
-
-                if (restartSuccess)
-                {
-                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                        $"Windows服务 [{serviceName}] 重启{(restartSuccess ? "成功" : "失败")}：{restartResult}", "常规服务看守");
-                }
+                (restartSuccess, resultMessage) = RunWindowCmd($"net stop \"{serviceName}\" & net start \"{serviceName}\"");
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                         $"Windows服务 [{serviceName}] 重启{(restartSuccess ? "成功" : "失败")}：{resultMessage}", "常规服务看守");
             }
             catch (Exception ex)
             {
                 ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
                     $"检查Windows服务 [{serviceName}] 时发生异常：{ex.Message}", "常规服务看守", LOG_TYPE.ErrorLog);
             }
+            return restartSuccess;
         }
 
         /// <summary>
         /// 检查并重启Linux系统服务
         /// </summary>
         /// <param name="serviceName">服务名称</param>
-        private void CheckAndRestartLinuxService(string serviceName)
+        private void LinuxServiceDog(string serviceName)
         {
             try
             {
@@ -967,7 +981,7 @@ namespace CenboGeneral
         /// 检查并重启Docker容器
         /// </summary>
         /// <param name="containerName">容器名称</param>
-        private void CheckAndRestartDockerContainer(string containerName)
+        private void DockerContainerDog(string containerName)
         {
             try
             {
