@@ -61,7 +61,7 @@ namespace CenboGeneral
 
         /// <summary>是否每天6点重启服务器</summary>
         [Description("是否每天6点重启服务器")]
-        public Boolean IsFwqRestart { get; set; } = false;
+        public Boolean IsFwqRestart { get; set; } = true;
 
         /// <summary>是否启用常规服务看守</summary>
         [Description("是否启用常规服务看守")]

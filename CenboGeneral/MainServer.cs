@@ -50,7 +50,6 @@ namespace CenboGeneral
 
         public void Start()
         {
-            CheckWindowsServices();
             _httpServer = new HttpServer
             {
                 Port = MainSetting.Current.HttpPort,
@@ -1164,10 +1163,7 @@ namespace CenboGeneral
             try
             {
                 // 检查容器状态
-                string checkCmd = Environment.OSVersion.Platform == PlatformID.Unix
-                    ? $"docker ps --filter \"name={containerName}\" --format \"table {{{{.Names}}}}\\t{{{{.Status}}}}\""
-                    : $"docker ps --filter \"name={containerName}\" --format \"table {{.Names}}\\t{{.Status}}\"";
-
+                string checkCmd = $"docker ps --filter \"name={containerName}\" --format \"table {{{{.Names}}}}\\t{{{{.Status}}}}\"";
                 var (checkSuccess, checkResult) = RunLinuxCmd(checkCmd);
                 if (checkSuccess && checkResult.Contains("Up"))
                 {
