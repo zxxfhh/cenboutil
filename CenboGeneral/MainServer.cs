@@ -512,6 +512,7 @@ namespace CenboGeneral
                         $"释放进程资源失败: {disposeEx.Message}", "CMD", LOG_TYPE.ErrorLog);
                 }
             }
+            if (isSuccess) resultstr = "";
 
             return (isSuccess, resultstr);
         }
@@ -882,7 +883,7 @@ namespace CenboGeneral
             // 检查Windows服务
             foreach (string service in windowsServices)
             {
-                CheckAndRestartWindowsService(service);
+                WindowsServiceDog(service);
             }
         }
 
@@ -890,7 +891,7 @@ namespace CenboGeneral
         /// 检查并重启Windows系统服务
         /// </summary>
         /// <param name="serviceName">服务名称</param>
-        private void CheckAndRestartWindowsService(string serviceName)
+        private void WindowsServiceDog(string serviceName)
         {
             try
             {
@@ -904,21 +905,13 @@ namespace CenboGeneral
                     return;
                 }
 
-                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                    $"Windows服务 [{serviceName}] 状态异常，尝试重启", "常规服务看守");
-
                 // 尝试重启服务
                 var (restartSuccess, restartResult) = RunWindowCmd($"net stop \"{serviceName}\" & net start \"{serviceName}\"");
 
                 if (restartSuccess)
                 {
                     ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                        $"Windows服务 [{serviceName}] 重启成功", "常规服务看守");
-                }
-                else
-                {
-                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                        $"Windows服务 [{serviceName}] 重启失败：{restartResult}", "常规服务看守", LOG_TYPE.ErrorLog);
+                        $"Windows服务 [{serviceName}] 重启{(restartSuccess ? "成功" : "失败")}：{restartResult}", "常规服务看守");
                 }
             }
             catch (Exception ex)
