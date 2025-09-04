@@ -66,6 +66,11 @@ namespace CenboGeneral
         /// <summary>是否启用常规服务看守</summary>
         [Description("是否启用常规服务看守")]
         public Boolean IsGeneralDog { get; set; } = true;
+
+        /// <summary>kkkfileview路径(win)</summary>
+        [Description("kkkfileview路径(win)")]
+        public String WinKkfileviewPath { get; set; } = "I:\\Winds服务器环境\\kkFileView-4.1.0\\bin\\startup.bat";
+
     }
 }
 

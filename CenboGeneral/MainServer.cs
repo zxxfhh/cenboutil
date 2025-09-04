@@ -2,7 +2,6 @@
 using CenboNew.ServiceLog;
 using MQTTnet;
 using MQTTnet.Protocol;
-using NewLife.Agent;
 using NewLife.Http;
 using NewLife.Threading;
 using Newtonsoft.Json;
@@ -51,6 +50,7 @@ namespace CenboGeneral
 
         public void Start()
         {
+            CheckWindowsServices();
             _httpServer = new HttpServer
             {
                 Port = MainSetting.Current.HttpPort,
@@ -369,7 +369,7 @@ namespace CenboGeneral
                 {
                     outputParts.Add($"输出: {output.Trim()}");
                 }
-                if (!string.IsNullOrWhiteSpace(error))
+                else if (!string.IsNullOrWhiteSpace(error))
                 {
                     outputParts.Add($"错误: {error.Trim()}");
                 }
@@ -513,7 +513,6 @@ namespace CenboGeneral
                         $"释放进程资源失败: {disposeEx.Message}", "CMD", LOG_TYPE.ErrorLog);
                 }
             }
-            if (isSuccess) resultstr = "";
 
             return (isSuccess, resultstr);
         }
@@ -831,7 +830,6 @@ namespace CenboGeneral
             List<string> systemServices = new List<string>
             {
                 "mysqld",
-                "mysql",
                 "docker"
             };
 
@@ -854,13 +852,39 @@ namespace CenboGeneral
             // 检查系统服务
             foreach (string service in systemServices)
             {
-                LinuxServiceDog(service);
+                const int maxRetries = 3;
+                int currentAttempt = 0;
+                while (currentAttempt < maxRetries)
+                {
+                    currentAttempt++;
+                    try
+                    {
+                        var isSuccess = LinuxServiceDog(service);
+                        if (isSuccess) break;
+                    }
+                    catch { }
+                    // 等待一段时间后重试，递增等待时间：1秒、2秒、3秒
+                    Thread.Sleep(1000 * currentAttempt);
+                }
             }
 
             // 检查Docker容器
             foreach (string container in dockerContainers)
             {
-                DockerContainerDog(container);
+                const int maxRetries = 3;
+                int currentAttempt = 0;
+                while (currentAttempt < maxRetries)
+                {
+                    currentAttempt++;
+                    try
+                    {
+                        var isSuccess = DockerContainerDog(container);
+                        if (isSuccess) break;
+                    }
+                    catch { }
+                    // 等待一段时间后重试，递增等待时间：1秒、2秒、3秒
+                    Thread.Sleep(1000 * currentAttempt);
+                }
             }
         }
 
@@ -879,10 +903,6 @@ namespace CenboGeneral
                 "Nginx",
                 "Redis"
             };
-            //启动kkfileview程序(不要显示界面)，监听8012端口被占用说明程序启动成功。
-            //string kkfileview = "C:\\kkFileView-4.1.0\\bin\\startup.bat";
-            string kkfileview = "I:\\Winds服务器环境\\kkFileView-4.1.0\\bin\\startup.bat";
-
 
             // 检查Windows服务
             foreach (string service in windowsServices)
@@ -901,6 +921,39 @@ namespace CenboGeneral
                     // 等待一段时间后重试，递增等待时间：1秒、2秒、3秒
                     Thread.Sleep(1000 * currentAttempt);
                 }
+            }
+
+            //启动kkfileview程序(不要显示界面)，监听8012端口被占用说明程序启动成功。
+            // 检查并重启kkfileview程序
+            KkFileViewDog(MainSetting.Current.WinKkfileviewPath);
+        }
+
+        #region Windows系统服务
+
+        /// <summary>
+        /// 检查指定端口是否被占用
+        /// </summary>
+        /// <param name="port">端口号</param>
+        /// <returns>true表示端口被占用，false表示端口空闲</returns>
+        private bool CheckPortInUse(int port)
+        {
+            try
+            {
+                // 使用netstat命令检查端口占用情况
+                var (success, result) = RunWindowCmd($"netstat -an | findstr :{port}");
+                if (success && !string.IsNullOrWhiteSpace(result))
+                {
+                    // 检查结果中是否包含LISTENING状态
+                    return result.Contains("LISTENING") || result.Contains("ESTABLISHED");
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"检查端口 {port} 占用情况时发生异常：{ex.Message}", "常规服务看守", LOG_TYPE.ErrorLog);
+                return false;
             }
         }
 
@@ -935,54 +988,179 @@ namespace CenboGeneral
             return restartSuccess;
         }
 
+        #endregion
+
+        #region  kkfileview
+
         /// <summary>
-        /// 检查并重启Linux系统服务
+        /// 检查并重启kkfileview程序
         /// </summary>
-        /// <param name="serviceName">服务名称</param>
-        private void LinuxServiceDog(string serviceName)
+        /// <param name="kkfileviewPath">kkfileview启动脚本路径</param>
+        private void KkFileViewDog(string kkfileviewPath)
         {
             try
             {
-                // 检查服务状态
-                var (checkSuccess, checkResult) = RunLinuxCmd($"systemctl is-active {serviceName}");
+                int targetPort = 8012;
 
-                if (checkSuccess && checkResult.Contains("active"))
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    "开始检查kkfileview程序状态", "常规服务看守");
+
+                // 检查8012端口是否被占用
+                bool isPortInUse = CheckPortInUse(targetPort);
+
+                if (isPortInUse)
                 {
                     ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                        $"系统服务 [{serviceName}] 运行正常", "常规服务看守");
+                        $"kkfileview程序运行正常，端口 {targetPort} 已被占用", "常规服务看守");
                     return;
                 }
 
                 ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                    $"系统服务 [{serviceName}] 状态异常，尝试重启", "常规服务看守");
+                    $"kkfileview程序未运行，端口 {targetPort} 未被占用，尝试启动程序", "常规服务看守");
 
-                // 尝试重启服务
-                var (restartSuccess, restartResult) = RunLinuxCmd($"systemctl restart {serviceName}");
+                // 使用重试机制启动kkfileview
+                const int maxRetries = 3;
+                int currentAttempt = 0;
+                bool startSuccess = false;
 
-                if (restartSuccess)
+                while (currentAttempt < maxRetries && !startSuccess)
+                {
+                    currentAttempt++;
+                    try
+                    {
+                        ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                            $"[kkfileview] 开始启动程序，第 {currentAttempt} 次尝试", "常规服务看守");
+
+                        StartKkFileView(kkfileviewPath);
+
+                        // 等待程序启动完成，最多等待30秒
+                        int waitCount = 0;
+                        int maxWaitCount = 30; // 30秒
+
+                        while (waitCount < maxWaitCount)
+                        {
+                            Thread.Sleep(1000); // 等待1秒
+                            waitCount++;
+
+                            if (CheckPortInUse(targetPort))
+                            {
+                                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                                    $"[kkfileview] 程序启动成功，端口 {targetPort} 已被占用，耗时 {waitCount} 秒，第 {currentAttempt} 次尝试", "常规服务看守");
+                                startSuccess = true;
+                                break;
+                            }
+                        }
+
+                        if (!startSuccess)
+                        {
+                            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                                $"[kkfileview] 程序启动超时，等待 {maxWaitCount} 秒后端口 {targetPort} 仍未被占用，第 {currentAttempt} 次尝试",
+                                "常规服务看守", LOG_TYPE.ErrorLog);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                            $"[kkfileview] 启动程序失败，第 {currentAttempt} 次尝试，错误信息: {ex.Message}",
+                            "常规服务看守", LOG_TYPE.ErrorLog);
+                    }
+
+                    if (!startSuccess && currentAttempt < maxRetries)
+                    {
+                        // 等待一段时间后重试，递增等待时间：1秒、2秒、3秒
+                        Thread.Sleep(1000 * currentAttempt);
+                    }
+                }
+
+                if (!startSuccess)
                 {
                     ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                        $"系统服务 [{serviceName}] 重启成功", "常规服务看守");
+                        $"[kkfileview] 程序已达到最大重试次数 {maxRetries}，最终启动失败",
+                        "常规服务看守", LOG_TYPE.ErrorLog);
                 }
-                else
+            }
+            catch (Exception ex)
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"检查kkfileview程序时发生异常：{ex.Message}", "常规服务看守", LOG_TYPE.ErrorLog);
+            }
+        }
+
+        /// <summary>
+        /// 启动kkfileview程序
+        /// </summary>
+        /// <param name="batFilePath">bat文件路径</param>
+        private void StartKkFileView(string batFilePath)
+        {
+            if (!File.Exists(batFilePath))
+            {
+                throw new FileNotFoundException($"kkfileview启动文件不存在：{batFilePath}");
+            }
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = batFilePath,
+                UseShellExecute = false,
+                CreateNoWindow = true, // 不显示界面
+                WindowStyle = ProcessWindowStyle.Hidden, // 隐藏窗口
+                WorkingDirectory = Path.GetDirectoryName(batFilePath) // 设置工作目录
+            };
+
+            using (var process = Process.Start(psi))
+            {
+                if (process == null)
+                {
+                    throw new InvalidOperationException("无法启动kkfileview进程");
+                }
+
+                // 不等待进程结束，因为这是一个服务程序，会一直运行
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"kkfileview进程已启动，进程ID：{process.Id}", "常规服务看守");
+            }
+        }
+
+        #endregion
+
+        #region Linux系统服务
+
+        /// <summary>
+        /// 检查并重启Linux系统服务
+        /// </summary>
+        /// <param name="serviceName">服务名称</param>
+        private bool LinuxServiceDog(string serviceName)
+        {
+            bool restartSuccess = false;
+            string resultMessage = "";
+            try
+            {
+                // 检查服务状态
+                var (checkSuccess, checkResult) = RunLinuxCmd($"systemctl is-active {serviceName}");
+                if (checkSuccess && checkResult.Trim().Equals("active", StringComparison.OrdinalIgnoreCase))
                 {
                     ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                        $"系统服务 [{serviceName}] 重启失败：{restartResult}", "常规服务看守", LOG_TYPE.ErrorLog);
+                        $"系统服务 [{serviceName}] 运行正常", "常规服务看守");
+                    return true;
                 }
+                (restartSuccess, resultMessage) = RunLinuxCmd($"systemctl restart {serviceName}");
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"系统服务 [{serviceName}] 重启{(restartSuccess ? "成功" : "失败")}：{resultMessage}", "常规服务看守");
             }
             catch (Exception ex)
             {
                 ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
                     $"检查系统服务 [{serviceName}] 时发生异常：{ex.Message}", "常规服务看守", LOG_TYPE.ErrorLog);
             }
+            return restartSuccess;
         }
 
         /// <summary>
         /// 检查并重启Docker容器
         /// </summary>
         /// <param name="containerName">容器名称</param>
-        private void DockerContainerDog(string containerName)
+        private bool DockerContainerDog(string containerName)
         {
+            bool restartSuccess = false;
+            string resultMessage = "";
             try
             {
                 // 检查容器状态
@@ -990,59 +1168,29 @@ namespace CenboGeneral
                     ? $"docker ps --filter \"name={containerName}\" --format \"table {{{{.Names}}}}\\t{{{{.Status}}}}\""
                     : $"docker ps --filter \"name={containerName}\" --format \"table {{.Names}}\\t{{.Status}}\"";
 
-                bool checkSuccess;
-                string checkResult;
-
-                if (Environment.OSVersion.Platform == PlatformID.Unix)
-                {
-                    (checkSuccess, checkResult) = RunLinuxCmd(checkCmd);
-                }
-                else
-                {
-                    (checkSuccess, checkResult) = RunWindowCmd(checkCmd);
-                }
-
+                var (checkSuccess, checkResult) = RunLinuxCmd(checkCmd);
                 if (checkSuccess && checkResult.Contains("Up"))
                 {
                     ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
                         $"Docker容器 [{containerName}] 运行正常", "常规服务看守");
-                    return;
+                    return true;
                 }
-
-                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                    $"Docker容器 [{containerName}] 状态异常，尝试重启", "常规服务看守");
 
                 // 尝试重启容器
                 string restartCmd = $"docker restart {containerName}";
-                bool restartSuccess;
-                string restartResult;
-
-                if (Environment.OSVersion.Platform == PlatformID.Unix)
-                {
-                    (restartSuccess, restartResult) = RunLinuxCmd(restartCmd);
-                }
-                else
-                {
-                    (restartSuccess, restartResult) = RunWindowCmd(restartCmd);
-                }
-
-                if (restartSuccess)
-                {
-                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                        $"Docker容器 [{containerName}] 重启成功", "常规服务看守");
-                }
-                else
-                {
-                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                        $"Docker容器 [{containerName}] 重启失败：{restartResult}", "常规服务看守", LOG_TYPE.ErrorLog);
-                }
+                (restartSuccess, resultMessage) = RunLinuxCmd(restartCmd);
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                       $"Docker容器[{containerName}] 重启{(restartSuccess ? "成功" : "失败")}：{resultMessage}", "常规服务看守");
             }
             catch (Exception ex)
             {
                 ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
                     $"检查Docker容器 [{containerName}] 时发生异常：{ex.Message}", "常规服务看守", LOG_TYPE.ErrorLog);
             }
+            return restartSuccess;
         }
+
+        #endregion
 
         #endregion
 
