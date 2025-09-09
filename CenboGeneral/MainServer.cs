@@ -271,7 +271,7 @@ namespace CenboGeneral
 
                 if (isSuccess)
                 {
-                    result.result = 1;
+                    result.result = 3;
                     result.message = "执行成功";
                     result.dataobj = resultMessage;
                 }
@@ -331,8 +331,8 @@ namespace CenboGeneral
                 var outputTask = process.StandardOutput.ReadToEndAsync();
                 var errorTask = process.StandardError.ReadToEndAsync();
 
-                // 等待进程完成，最多3秒
-                bool finished = process.WaitForExit(3000);
+                // 等待进程完成，最多10秒
+                bool finished = process.WaitForExit(10000);
 
                 if (!finished)
                 {
@@ -351,7 +351,7 @@ namespace CenboGeneral
                             $"强制终止进程失败: {killEx.Message}", "CMD", LOG_TYPE.ErrorLog);
                     }
 
-                    resultstr = "错误: 命令执行超时（3秒）";
+                    resultstr = "错误: 命令执行超时（10秒）";
                     return (false, resultstr);
                 }
 
@@ -439,9 +439,9 @@ namespace CenboGeneral
                 var outputTask = process.StandardOutput.ReadToEndAsync();
                 var errorTask = process.StandardError.ReadToEndAsync();
 
-                // 等待进程完成，最多5秒
-                int waittime = 5000;
-                if (cmd.ToLower().Contains("mysql")) waittime = 10000;
+                // 等待进程完成，最多10秒
+                int waittime = 10000;
+                if (cmd.ToLower().Contains("mysql")) waittime = 15000;
                 bool finished = process.WaitForExit(waittime);
                 if (!finished)
                 {
@@ -1134,13 +1134,15 @@ namespace CenboGeneral
             {
                 // 检查服务状态
                 var (checkSuccess, checkResult) = RunLinuxCmd($"systemctl is-active {serviceName}");
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"系统服务 [{serviceName}] 运行{(checkSuccess ? "成功" : "失败")}：{checkResult}", "常规服务看守");
                 if (checkSuccess && checkResult.Trim().Equals("active", StringComparison.OrdinalIgnoreCase))
                 {
                     ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
                         $"系统服务 [{serviceName}] 运行正常", "常规服务看守");
                     return true;
                 }
-                (restartSuccess, resultMessage) = RunLinuxCmd($"systemctl restart {serviceName}");
+                (restartSuccess, resultMessage) = RunLinuxCmd($"systemctl start {serviceName}");
                 ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
                     $"系统服务 [{serviceName}] 重启{(restartSuccess ? "成功" : "失败")}：{resultMessage}", "常规服务看守");
             }
