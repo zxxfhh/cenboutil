@@ -35,7 +35,7 @@ namespace CenboGeneral
 
         /// <summary>短信通知默认号码(,隔开)</summary>
         [Description("短信通知默认号码(,隔开)")]
-        public String NoteDefaultTel { get; set; } = "680574";
+        public String NoteDefaultTel { get; set; } = "680574,663657";
 
 
         /// <summary>发件人邮箱地址</summary>
@@ -71,6 +71,9 @@ namespace CenboGeneral
         [Description("kkkfileview路径(win)")]
         public String WinKkfileviewPath { get; set; } = "I:\\Winds服务器环境\\kkFileView-4.1.0\\bin\\startup.bat";
 
+        /// <summary>是否信创</summary>
+        [Description("是否信创")]
+        public Boolean IsXinChuang { get; set; } = false;
     }
 }
 

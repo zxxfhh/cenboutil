@@ -331,8 +331,9 @@ namespace CenboGeneral
                 var outputTask = process.StandardOutput.ReadToEndAsync();
                 var errorTask = process.StandardError.ReadToEndAsync();
 
-                // 等待进程完成，最多10秒
-                bool finished = process.WaitForExit(10000);
+                // 等待进程完成，最多N秒
+                int waittime = 20 * 1000;
+                bool finished = process.WaitForExit(waittime);
 
                 if (!finished)
                 {
@@ -351,7 +352,7 @@ namespace CenboGeneral
                             $"强制终止进程失败: {killEx.Message}", "CMD", LOG_TYPE.ErrorLog);
                     }
 
-                    resultstr = "错误: 命令执行超时（10秒）";
+                    resultstr = $"命令执行超时（{waittime / 1000}秒）";
                     return (false, resultstr);
                 }
 
@@ -439,9 +440,8 @@ namespace CenboGeneral
                 var outputTask = process.StandardOutput.ReadToEndAsync();
                 var errorTask = process.StandardError.ReadToEndAsync();
 
-                // 等待进程完成，最多10秒
-                int waittime = 10000;
-                if (cmd.ToLower().Contains("mysql")) waittime = 15000;
+                // 等待进程完成，最多N秒
+                int waittime = 20 * 1000;
                 bool finished = process.WaitForExit(waittime);
                 if (!finished)
                 {
@@ -460,7 +460,7 @@ namespace CenboGeneral
                             $"强制终止进程失败: {killEx.Message}", "CMD", LOG_TYPE.ErrorLog);
                     }
 
-                    resultstr = $"错误: 命令执行超时（{waittime / 1000}秒）";
+                    resultstr = $"命令执行超时（{waittime / 1000}秒）";
                     return (false, resultstr);
                 }
 
@@ -544,7 +544,12 @@ namespace CenboGeneral
                     EndpointAddress address = new EndpointAddress(MainSetting.Current.SmsUrl);
                     using (SmpWebServiceSoapClient client = new SmpWebServiceSoapClient(binding, address))
                     {
-                        resxml = client.SendSms(model.NoteContent, model.AddresseeTel, model.SendTime, "admin", "123456", model.AppCode);
+                        model.AddresseeTel.ToStringList().ForEach(tel =>
+                        {
+                            resxml = client.SendSms(model.NoteContent, tel, model.SendTime, "admin", "123456", model.AppCode);
+                            Task.Delay(1000).Wait();
+                        });
+                        //resxml = client.SendSms(model.NoteContent, model.AddresseeTel, model.SendTime, "admin", "123456", model.AppCode);
                         JObject jo = JObject.Parse(resxml);
                         if (jo["status"] != null)
                         {
@@ -833,20 +838,27 @@ namespace CenboGeneral
             };
 
             // Docker容器列表
-            List<string> dockerContainers = new List<string>
+            List<string> dockerContainers = new List<string>();
+            if (MainSetting.Current.IsXinChuang)
             {
-                "mysql",
-                "rabbitmq",
-                "consul",
-                "nginx",
-                "redis",
-                "kkfileview",
-                "tidb",
-                "tendisplus",
-                "easysearch01",
-                "easysearch02",
-                "esconsole"
-            };
+                dockerContainers.Add("mysql");
+                dockerContainers.Add("rabbitmq");
+                dockerContainers.Add("consul");
+                dockerContainers.Add("nginx");
+                dockerContainers.Add("redis");
+                dockerContainers.Add("kkfileview");
+            }
+            else
+            {
+                dockerContainers.Add("nginx");
+                dockerContainers.Add("consul");
+                dockerContainers.Add("rabbitmq");
+                dockerContainers.Add("tidb");
+                dockerContainers.Add("tendisplus");
+                dockerContainers.Add("easysearch01");
+                dockerContainers.Add("easysearch02");
+                dockerContainers.Add("esconsole");
+            }
 
             // 检查系统服务
             foreach (string service in systemServices)
