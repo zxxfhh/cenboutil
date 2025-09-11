@@ -59,13 +59,13 @@ namespace CenboGeneral
         public String ReceiveEmails { get; set; } = "609912601@qq.com";
 
 
-        /// <summary>是否每天6点重启服务器</summary>
-        [Description("是否每天6点重启服务器")]
-        public Boolean IsFwqRestart { get; set; } = true;
+        /// <summary>是否每天7点重启服务器</summary>
+        [Description("是否每天7点重启服务器")]
+        public Boolean IsFwqRestart { get; set; } = false;
 
         /// <summary>是否启用常规服务看守</summary>
         [Description("是否启用常规服务看守")]
-        public Boolean IsGeneralDog { get; set; } = true;
+        public Boolean IsGeneralDog { get; set; } = false;
 
         /// <summary>kkkfileview路径(win)</summary>
         [Description("kkkfileview路径(win)")]

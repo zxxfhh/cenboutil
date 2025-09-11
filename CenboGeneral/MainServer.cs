@@ -2,6 +2,7 @@
 using CenboNew.ServiceLog;
 using MQTTnet;
 using MQTTnet.Protocol;
+using NewLife.Agent;
 using NewLife.Http;
 using NewLife.Threading;
 using Newtonsoft.Json;
@@ -60,13 +61,13 @@ namespace CenboGeneral
             _httpServer.Start();
             ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"Http端口监听成功{_httpServer.Port}", "开启服务");
 
-            //5分钟检测一次
-            timergeneraldog = new TimerX(GeneralDog, null, 30 * 1000, 1000 * 60 * 5);
-            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "常规服务看守定时器(5分钟1次)开启成功", "开启服务");
+            //10分钟检测一次
+            timergeneraldog = new TimerX(GeneralDog, null, 30 * 1000, 1000 * 60 * 10);
+            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "常规服务看守定时器(10分钟1次)开启成功", "开启服务");
 
-            var timefwq = DateTime.Now.Date.AddHours(6);
+            var timefwq = DateTime.Now.Date.AddHours(7);
             timerfwqrestart = new TimerX(FwqRestart, null, timefwq, 1000 * 60 * 60 * 24);
-            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "服务器重启定时器(每天6点)开启成功", "开启服务");
+            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "服务器重启定时器(每天7点)开启成功", "开启服务");
 
             var obj = new object[] { };
             ThreadWithState<object[]> tws = new ThreadWithState<object[]>(obj, MqttConnect);
@@ -332,7 +333,7 @@ namespace CenboGeneral
                 var errorTask = process.StandardError.ReadToEndAsync();
 
                 // 等待进程完成，最多N秒
-                int waittime = 20 * 1000;
+                int waittime = 30 * 1000;
                 bool finished = process.WaitForExit(waittime);
 
                 if (!finished)
@@ -441,7 +442,7 @@ namespace CenboGeneral
                 var errorTask = process.StandardError.ReadToEndAsync();
 
                 // 等待进程完成，最多N秒
-                int waittime = 20 * 1000;
+                int waittime = 30 * 1000;
                 bool finished = process.WaitForExit(waittime);
                 if (!finished)
                 {
@@ -662,6 +663,7 @@ namespace CenboGeneral
                 .WithTcpServer(MainSetting.Current.MQHost, 1883) // 要访问的mqtt服务端的 ip 和 端口号
                 .WithCredentials(MainSetting.Current.MQUser, MainSetting.Current.MQPass) // 要访问的mqtt服务端的用户名和密码
                 .WithClientId($"CenboGeneral_{SnowModel.Instance.NewId()}") // 设置客户端id
+                .WithProtocolVersion(MQTTnet.Formatter.MqttProtocolVersion.V311)  // 强制使用 3.1.1
                 .WithCleanSession(false)
                 .WithKeepAlivePeriod(TimeSpan.FromSeconds(15))
                 .WithTlsOptions(new MqttClientTlsOptions
@@ -688,15 +690,40 @@ namespace CenboGeneral
         private Task MqttDisConnectedAsync(MqttClientDisconnectedEventArgs arg)
         {
             mqttConnectFailCount++;
-            Task.Delay(30 * 1000).Wait();
+            Task.Delay(60 * 1000).Wait();
             mqttClient.ConnectAsync(clientOptions);
-            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "与服务端重新连接", "MQTT");
-            if (mqttConnectFailCount > 10)
+            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "Mqtt连接断开", "MQTT");
+            if (mqttConnectFailCount > 20)
             {
-                //重启mqtt服务
+                // 检查服务状态
+                var (checkSuccess, checkResult) = RunLinuxCmd($"systemctl is-active rabbitmq");
+                //短信通知
+                var _NoteInfo = new
+                {
+                    NoteContent = $"MQTT(20分钟)离线状态：{checkResult}",
+                    SendTime = DateTime.Now.AddSeconds(50),
+                    AppCode = "南湖劳安"
+                };
+                SmsNoteJy(_NoteInfo.ToJson());
+                ////重启mqtt服务
+                //string wincmd = "net stop RabbitMQ & net start RabbitMQ";
+                //string linxcmd = "docker restart rabbitmq";
 
+                //// 检测操作系统并执行相应的命令
+                //bool isSuccess = false;
+                //string resultMessage = "";
 
-                mqttConnectFailCount = 0;
+                //if (Environment.OSVersion.Platform == PlatformID.Unix)
+                //{
+                //    // Linux系统，以root执行
+                //    (isSuccess, resultMessage) = RunLinuxCmd(linxcmd);
+                //}
+                //else
+                //{
+                //    // Windows系统，以管理员模式执行
+                //    (isSuccess, resultMessage) = RunWindowCmd(wincmd);
+                //}
+                //if (isSuccess) mqttConnectFailCount = 0;
             }
 
             return Task.CompletedTask;
@@ -714,7 +741,7 @@ namespace CenboGeneral
             // 1: 保证一条消息至少有一次会传递给接收方。发送方存储消息，直到它从接收方收到确认收到消息的数据包。一条消息可以多次发送或传递。
             // 2: 保证每条消息仅由预期的收件人接收一次。级别2是最安全和最慢的服务质量级别，保证由发送方和接收方之间的至少两个请求/响应（四次握手）。
             mqttClient.SubscribeAsync(MainSetting.Current.MqRoutingKey, MqttQualityOfServiceLevel.AtLeastOnce);
-            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "服务端的连接成功并订阅", "MQTT");
+            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "Mqtt重连成功并订阅", "MQTT");
 
             return Task.CompletedTask;
         }
@@ -839,10 +866,10 @@ namespace CenboGeneral
 
             // Docker容器列表
             List<string> dockerContainers = new List<string>();
-            if (MainSetting.Current.IsXinChuang)
+            if (!MainSetting.Current.IsXinChuang)
             {
                 dockerContainers.Add("mysql");
-                dockerContainers.Add("rabbitmq");
+                //dockerContainers.Add("rabbitmq");
                 dockerContainers.Add("consul");
                 dockerContainers.Add("nginx");
                 dockerContainers.Add("redis");
@@ -852,7 +879,7 @@ namespace CenboGeneral
             {
                 dockerContainers.Add("nginx");
                 dockerContainers.Add("consul");
-                dockerContainers.Add("rabbitmq");
+                //dockerContainers.Add("rabbitmq");
                 dockerContainers.Add("tidb");
                 dockerContainers.Add("tendisplus");
                 dockerContainers.Add("easysearch01");
@@ -874,8 +901,7 @@ namespace CenboGeneral
                         if (isSuccess) break;
                     }
                     catch { }
-                    // 等待一段时间后重试，递增等待时间：1秒、2秒、3秒
-                    Thread.Sleep(1000 * currentAttempt);
+                    Task.Delay(1000 * 60).Wait();
                 }
             }
 
@@ -893,8 +919,7 @@ namespace CenboGeneral
                         if (isSuccess) break;
                     }
                     catch { }
-                    // 等待一段时间后重试，递增等待时间：1秒、2秒、3秒
-                    Thread.Sleep(1000 * currentAttempt);
+                    Task.Delay(1000 * 60).Wait();
                 }
             }
         }
@@ -929,11 +954,10 @@ namespace CenboGeneral
                         if (isSuccess) break;
                     }
                     catch { }
-                    // 等待一段时间后重试，递增等待时间：1秒、2秒、3秒
-                    Thread.Sleep(1000 * currentAttempt);
+                    Task.Delay(1000 * 60).Wait();
                 }
             }
-
+            Task.Delay(1000 * 60).Wait();
             //启动kkfileview程序(不要显示界面)，监听8012端口被占用说明程序启动成功。
             // 检查并重启kkfileview程序
             KkFileViewDog(MainSetting.Current.WinKkfileviewPath);
@@ -1146,8 +1170,6 @@ namespace CenboGeneral
             {
                 // 检查服务状态
                 var (checkSuccess, checkResult) = RunLinuxCmd($"systemctl is-active {serviceName}");
-                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                    $"系统服务 [{serviceName}] 运行{(checkSuccess ? "成功" : "失败")}：{checkResult}", "常规服务看守");
                 if (checkSuccess && checkResult.Trim().Equals("active", StringComparison.OrdinalIgnoreCase))
                 {
                     ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
@@ -1187,7 +1209,7 @@ namespace CenboGeneral
                 }
 
                 // 尝试重启容器
-                string restartCmd = $"docker restart {containerName}";
+                string restartCmd = $"docker start {containerName}";
                 (restartSuccess, resultMessage) = RunLinuxCmd(restartCmd);
                 ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
                        $"Docker容器[{containerName}] 重启{(restartSuccess ? "成功" : "失败")}：{resultMessage}", "常规服务看守");
