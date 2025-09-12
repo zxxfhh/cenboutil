@@ -874,7 +874,7 @@ namespace CenboGeneral
             if (!MainSetting.Current.IsXinChuang)
             {
                 dockerContainers.Add("mysql");
-                //dockerContainers.Add("rabbitmq");
+                dockerContainers.Add("rabbitmq");
                 dockerContainers.Add("consul");
                 dockerContainers.Add("nginx");
                 dockerContainers.Add("redis");
@@ -884,7 +884,7 @@ namespace CenboGeneral
             {
                 dockerContainers.Add("nginx");
                 dockerContainers.Add("consul");
-                //dockerContainers.Add("rabbitmq");
+                dockerContainers.Add("rabbitmq");
                 dockerContainers.Add("tidb");
                 dockerContainers.Add("tendisplus");
                 dockerContainers.Add("easysearch01");
@@ -1306,9 +1306,38 @@ namespace CenboGeneral
                 Task.Delay(2 * 60 * 1000).Wait();
                 ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "开始执行服务器重启", "服务器重启");
 
+                // 系统服务列表
+                List<string> systemServices = new List<string>
+                {
+                    "mysqld",
+                    "docker"
+                };
+
+                // Docker容器列表
+                List<string> dockerContainers = new List<string>();
+                if (!MainSetting.Current.IsXinChuang)
+                {
+                    dockerContainers.Add("mysql");
+                    dockerContainers.Add("rabbitmq");
+                    dockerContainers.Add("consul");
+                    dockerContainers.Add("nginx");
+                    dockerContainers.Add("redis");
+                    dockerContainers.Add("kkfileview");
+                }
+                else
+                {
+                    dockerContainers.Add("nginx");
+                    dockerContainers.Add("consul");
+                    dockerContainers.Add("rabbitmq");
+                    dockerContainers.Add("tidb");
+                    dockerContainers.Add("tendisplus");
+                    dockerContainers.Add("easysearch01");
+                    dockerContainers.Add("easysearch02");
+                    dockerContainers.Add("esconsole");
+                }
 
 
-                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"服务器重启{(isSuccess ? "成功" : "失败")}：{resultMessage}", "服务器重启");
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"服务器重启", "服务器重启");
             }
             catch (Exception ex)
             {
