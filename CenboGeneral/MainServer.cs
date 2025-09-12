@@ -1322,7 +1322,6 @@ namespace CenboGeneral
                     dockerContainers.Add("consul");
                     dockerContainers.Add("nginx");
                     dockerContainers.Add("redis");
-                    dockerContainers.Add("kkfileview");
                 }
                 else
                 {
