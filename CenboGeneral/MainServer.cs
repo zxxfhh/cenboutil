@@ -69,10 +69,15 @@ namespace CenboGeneral
             timerfwqrestart = new TimerX(FwqRestart, null, timefwq, 1000 * 60 * 60 * 24);
             ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "服务器重启定时器(每天7点)开启成功", "开启服务");
 
-            var obj = new object[] { };
-            ThreadWithState<object[]> tws = new ThreadWithState<object[]>(obj, MqttConnect);
+            //MQTT服务
+            ThreadWithState<object[]> tws = new ThreadWithState<object[]>(new object[] { }, MqttConnect);
             Thread t = new Thread(tws.ThreadProc) { IsBackground = true };
             t.Start();
+
+            //服务器重启监听
+            ThreadWithState<object[]> tws2 = new ThreadWithState<object[]>(new object[] { }, FwqRestartCheck);
+            Thread t2 = new Thread(tws2.ThreadProc) { IsBackground = true };
+            t2.Start();
         }
 
         #endregion
@@ -1286,5 +1291,33 @@ namespace CenboGeneral
         }
 
         #endregion
+
+        #region 服务器重启监听
+
+        /// <summary>
+        /// 服务器重启
+        /// </summary>
+        /// <param name="obj"></param>
+        private void FwqRestartCheck(object obj)
+        {
+            try
+            {
+                //2分钟之后执行一次，确保别的服务启动完成。
+                Task.Delay(2 * 60 * 1000).Wait();
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "开始执行服务器重启", "服务器重启");
+
+
+
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"服务器重启{(isSuccess ? "成功" : "失败")}：{resultMessage}", "服务器重启");
+            }
+            catch (Exception ex)
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, ex.ToString(), "服务器重启", LOG_TYPE.ErrorLog);
+            }
+        }
+
+
+        #endregion
+
     }
 }
