@@ -1,0 +1,26 @@
+﻿services:
+
+  #后台接口服务
+  cenbogeneral:
+    image: cenbogeneral
+    container_name: cenbogeneral
+    build:
+      context: ./CenboGeneral
+      dockerfile: Dockerfile
+    restart: always
+    user: root
+    privileged: true
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+    volumes:
+      - /home/docker_log/cenbogeneral.host/logs:/app/Log
+      - /home/docker_log/cenbogeneral.host/logdb:/app/LogDB
+      - /home/docker_log/cenbogeneral.host/config:/app/Config
+    networks:
+      - cenbogeneral-network
+    ports:
+      - 13595:8080
+
+networks:
+  cenbogeneral-network:
+    external: true

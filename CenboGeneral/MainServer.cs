@@ -1,4 +1,4 @@
-﻿using CenBoCommon.Zxx;
+﻿﻿using CenBoCommon.Zxx;
 using CenboNew.ServiceLog;
 using MQTTnet;
 using MQTTnet.Protocol;
@@ -24,15 +24,15 @@ namespace CenboGeneral
         /// <summary>
         /// 常规服务看守定时器
         /// </summary>
-        private TimerX timergeneraldog = null;
+        public TimerX timergeneraldog = null;
         /// <summary>
         /// 业务服务看守定时器
         /// </summary>
-        private TimerX timerbusinessdog = null;
+        public TimerX timerbusinessdog = null;
         /// <summary>
         /// 每天6点重启服务器定时器
         /// </summary>
-        private TimerX timerfwqrestart = null;
+        public TimerX timerfwqrestart = null;
         /// <summary>
         /// Mqtt重连失败次数
         /// </summary>
@@ -74,10 +74,10 @@ namespace CenboGeneral
             Thread t = new Thread(tws.ThreadProc) { IsBackground = true };
             t.Start();
 
-            //服务器重启监听
-            ThreadWithState<object[]> tws2 = new ThreadWithState<object[]>(new object[] { }, FwqRestartCheck);
-            Thread t2 = new Thread(tws2.ThreadProc) { IsBackground = true };
-            t2.Start();
+            ////服务器重启监听
+            //ThreadWithState<object[]> tws2 = new ThreadWithState<object[]>(new object[] { }, FwqRestartCheck);
+            //Thread t2 = new Thread(tws2.ThreadProc) { IsBackground = true };
+            //t2.Start();
         }
 
         #endregion
@@ -826,7 +826,7 @@ namespace CenboGeneral
         /// 常规服务看守
         /// </summary>
         /// <param name="obj"></param>
-        private void GeneralDog(object? obj)
+        public void GeneralDog(object? obj)
         {
             try
             {
@@ -860,7 +860,7 @@ namespace CenboGeneral
         /// <summary>
         /// 检查Linux系统服务
         /// </summary>
-        private void CheckLinuxServices()
+        public void CheckLinuxServices()
         {
             // 系统服务列表
             List<string> systemServices = new List<string>
@@ -1237,7 +1237,7 @@ namespace CenboGeneral
         /// 服务器重启
         /// </summary>
         /// <param name="obj"></param>
-        private void FwqRestart(object? obj)
+        public void FwqRestart(object? obj)
         {
             try
             {
@@ -1295,7 +1295,7 @@ namespace CenboGeneral
         #region 服务器重启监听
 
         /// <summary>
-        /// 服务器重启
+        /// 服务器重启后检查服务和端口状态
         /// </summary>
         /// <param name="obj"></param>
         private void FwqRestartCheck(object obj)
@@ -1304,43 +1304,456 @@ namespace CenboGeneral
             {
                 //2分钟之后执行一次，确保别的服务启动完成。
                 Task.Delay(2 * 60 * 1000).Wait();
-                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "开始执行服务器重启", "服务器重启");
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "开始执行服务器重启后检查", "服务器重启检查");
 
-                // 系统服务列表
-                List<string> systemServices = new List<string>
+                // 服务端口映射配置
+                Dictionary<string, int> servicePortMap = new Dictionary<string, int>();
+                
+                if (Environment.OSVersion.Platform == PlatformID.Unix)
                 {
-                    "mysqld",
-                    "docker"
-                };
-
-                // Docker容器列表
-                List<string> dockerContainers = new List<string>();
-                if (!MainSetting.Current.IsXinChuang)
-                {
-                    dockerContainers.Add("mysql");
-                    dockerContainers.Add("rabbitmq");
-                    dockerContainers.Add("consul");
-                    dockerContainers.Add("nginx");
-                    dockerContainers.Add("redis");
+                    // Linux系统检查
+                    CheckLinuxServicesAfterRestart();
                 }
                 else
                 {
-                    dockerContainers.Add("nginx");
-                    dockerContainers.Add("consul");
-                    dockerContainers.Add("rabbitmq");
-                    dockerContainers.Add("tidb");
-                    dockerContainers.Add("tendisplus");
-                    dockerContainers.Add("easysearch01");
-                    dockerContainers.Add("easysearch02");
-                    dockerContainers.Add("esconsole");
+                    // Windows系统检查  
+                    CheckWindowsServicesAfterRestart();
                 }
 
-
-                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"服务器重启", "服务器重启");
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "服务器重启后检查完成", "服务器重启检查");
             }
             catch (Exception ex)
             {
-                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, ex.ToString(), "服务器重启", LOG_TYPE.ErrorLog);
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, ex.ToString(), "服务器重启检查", LOG_TYPE.ErrorLog);
+            }
+        }
+
+        /// <summary>
+        /// 检查Linux系统服务和端口状态
+        /// </summary>
+        private void CheckLinuxServicesAfterRestart()
+        {
+            try
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "开始检查Linux系统服务和端口", "服务器重启检查");
+
+                // 系统服务配置
+                Dictionary<string, int> systemServices = new Dictionary<string, int>
+                {
+                    { "mysqld", 3306 },
+                    { "docker", 0 } // docker服务本身不监听特定端口
+                };
+
+                // Docker容器及端口配置
+                Dictionary<string, int> dockerContainers = new Dictionary<string, int>();
+                if (!MainSetting.Current.IsXinChuang)
+                {
+                    dockerContainers.Add("mysql", 3306);
+                    dockerContainers.Add("rabbitmq", 1883);
+                    dockerContainers.Add("consul", 8500);
+                    dockerContainers.Add("nginx", 80);
+                    dockerContainers.Add("redis", 6379);
+                    dockerContainers.Add("kkfileview", 8012);
+                }
+                else
+                {
+                    dockerContainers.Add("nginx", 80);
+                    dockerContainers.Add("consul", 8500);
+                    dockerContainers.Add("rabbitmq", 1883);
+                    dockerContainers.Add("tidb", 4000);
+                    dockerContainers.Add("tendisplus", 6379);
+                    dockerContainers.Add("easysearch01", 9200);
+                    dockerContainers.Add("easysearch02", 9201);
+                    dockerContainers.Add("esconsole", 5601);
+                }
+
+                // 检查系统服务
+                foreach (var service in systemServices)
+                {
+                    CheckLinuxServiceAndPort(service.Key, service.Value);
+                    Task.Delay(1000).Wait(); // 间隔1秒
+                }
+
+                // 检查Docker容器
+                foreach (var container in dockerContainers)
+                {
+                    CheckDockerContainerAndPort(container.Key, container.Value);
+                    Task.Delay(1000).Wait(); // 间隔1秒
+                }
+            }
+            catch (Exception ex)
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, ex.ToString(), "Linux服务检查", LOG_TYPE.ErrorLog);
+            }
+        }
+
+        /// <summary>
+        /// 检查Windows系统服务和端口状态
+        /// </summary>
+        private void CheckWindowsServicesAfterRestart()
+        {
+            try
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "开始检查Windows系统服务和端口", "服务器重启检查");
+
+                // Windows服务及端口配置
+                Dictionary<string, int> windowsServices = new Dictionary<string, int>
+                {
+                    { "MySQL57", 3306 },
+                    { "MySQL80", 3306 },
+                    { "RabbitMQ", 1883 },
+                    { "ConsulService", 8500 },
+                    { "Nginx", 80 },
+                    { "Redis", 6379 }
+                };
+
+                // 检查Windows服务
+                foreach (var service in windowsServices)
+                {
+                    CheckWindowsServiceAndPort(service.Key, service.Value);
+                    Task.Delay(1000).Wait(); // 间隔1秒
+                }
+
+                // 检查kkfileview程序
+                CheckKkFileViewAfterRestart();
+            }
+            catch (Exception ex)
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, ex.ToString(), "Windows服务检查", LOG_TYPE.ErrorLog);
+            }
+        }
+
+        /// <summary>
+        /// 检查Linux系统服务和对应端口
+        /// </summary>
+        /// <param name="serviceName">服务名称</param>
+        /// <param name="port">端口号，0表示不检查端口</param>
+        private void CheckLinuxServiceAndPort(string serviceName, int port)
+        {
+            try
+            {
+                // 检查服务状态
+                var (serviceSuccess, serviceResult) = RunLinuxCmd($"systemctl is-active {serviceName}");
+                bool serviceRunning = serviceSuccess && serviceResult.Trim().Equals("active", StringComparison.OrdinalIgnoreCase);
+
+                // 检查端口状态（如果需要）
+                bool portListening = true; // 默认为true，如果不需要检查端口
+                if (port > 0)
+                {
+                    portListening = CheckLinuxPortInUse(port);
+                }
+
+                string status = serviceRunning ? "运行正常" : "服务异常";
+                if (port > 0)
+                {
+                    status += portListening ? $"，端口{port}监听正常" : $"，端口{port}监听异常";
+                }
+
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"系统服务 [{serviceName}] {status}", "服务器重启检查");
+
+                // 如果服务异常或端口异常，尝试重启
+                if (!serviceRunning || (port > 0 && !portListening))
+                {
+                    var restartAttempts = 0;
+                    const int maxRestartAttempts = 3;
+                    
+                    while (restartAttempts < maxRestartAttempts)
+                    {
+                        restartAttempts++;
+                        ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                            $"尝试重启系统服务 [{serviceName}]，第{restartAttempts}次", "服务器重启检查");
+                            
+                        var (restartSuccess, restartResult) = RunLinuxCmd($"systemctl restart {serviceName}");
+                        Task.Delay(5000).Wait(); // 等待5秒让服务启动
+                        
+                        // 重新检查状态
+                        (serviceSuccess, serviceResult) = RunLinuxCmd($"systemctl is-active {serviceName}");
+                        serviceRunning = serviceSuccess && serviceResult.Trim().Equals("active", StringComparison.OrdinalIgnoreCase);
+                        
+                        if (port > 0)
+                        {
+                            portListening = CheckLinuxPortInUse(port);
+                        }
+                        
+                        if (serviceRunning && (port == 0 || portListening))
+                        {
+                            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                                $"系统服务 [{serviceName}] 重启成功", "服务器重启检查");
+                            break;
+                        }
+                        
+                        if (restartAttempts >= maxRestartAttempts)
+                        {
+                            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                                $"系统服务 [{serviceName}] 重启失败，已达到最大重试次数", "服务器重启检查", LOG_TYPE.ErrorLog);
+                        }
+                        else
+                        {
+                            Task.Delay(10000).Wait(); // 等待10秒后重试
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"检查系统服务 [{serviceName}] 时发生异常：{ex.Message}", "服务器重启检查", LOG_TYPE.ErrorLog);
+            }
+        }
+
+        /// <summary>
+        /// 检查Docker容器和对应端口
+        /// </summary>
+        /// <param name="containerName">容器名称</param>
+        /// <param name="port">端口号</param>
+        private void CheckDockerContainerAndPort(string containerName, int port)
+        {
+            try
+            {
+                // 检查容器状态
+                string checkCmd = $"docker ps --filter \"name={containerName}\" --format \"table {{{{.Names}}}}\\t{{{{.Status}}}}\"";
+                var (containerSuccess, containerResult) = RunLinuxCmd(checkCmd);
+                bool containerRunning = containerSuccess && containerResult.Contains("Up");
+
+                // 检查端口状态
+                bool portListening = CheckLinuxPortInUse(port);
+
+                string status = containerRunning ? "运行正常" : "容器异常";
+                status += portListening ? $"，端口{port}监听正常" : $"，端口{port}监听异常";
+
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"Docker容器 [{containerName}] {status}", "服务器重启检查");
+
+                // 如果容器异常或端口异常，尝试重启
+                if (!containerRunning || !portListening)
+                {
+                    var restartAttempts = 0;
+                    const int maxRestartAttempts = 3;
+                    
+                    while (restartAttempts < maxRestartAttempts)
+                    {
+                        restartAttempts++;
+                        ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                            $"尝试重启Docker容器 [{containerName}]，第{restartAttempts}次", "服务器重启检查");
+                            
+                        var (restartSuccess, restartResult) = RunLinuxCmd($"docker restart {containerName}");
+                        Task.Delay(10000).Wait(); // 等待10秒让容器启动
+                        
+                        // 重新检查状态
+                        (containerSuccess, containerResult) = RunLinuxCmd(checkCmd);
+                        containerRunning = containerSuccess && containerResult.Contains("Up");
+                        portListening = CheckLinuxPortInUse(port);
+                        
+                        if (containerRunning && portListening)
+                        {
+                            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                                $"Docker容器 [{containerName}] 重启成功", "服务器重启检查");
+                            break;
+                        }
+                        
+                        if (restartAttempts >= maxRestartAttempts)
+                        {
+                            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                                $"Docker容器 [{containerName}] 重启失败，已达到最大重试次数", "服务器重启检查", LOG_TYPE.ErrorLog);
+                                
+                            // 特别处理RabbitMQ的1883端口问题
+                            if (containerName.ToLower().Contains("rabbitmq") && port == 1883)
+                            {
+                                HandleRabbitMqPortIssue(containerName);
+                            }
+                        }
+                        else
+                        {
+                            Task.Delay(15000).Wait(); // 等待15秒后重试
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"检查Docker容器 [{containerName}] 时发生异常：{ex.Message}", "服务器重启检查", LOG_TYPE.ErrorLog);
+            }
+        }
+
+        /// <summary>
+        /// 检查Windows服务和对应端口
+        /// </summary>
+        /// <param name="serviceName">服务名称</param>
+        /// <param name="port">端口号</param>
+        private void CheckWindowsServiceAndPort(string serviceName, int port)
+        {
+            try
+            {
+                // 检查服务状态
+                var (serviceSuccess, serviceResult) = RunWindowCmd($"sc query \"{serviceName}\"");
+                bool serviceRunning = serviceSuccess && serviceResult.Contains("RUNNING");
+
+                // 检查端口状态
+                bool portListening = CheckPortInUse(port);
+
+                string status = serviceRunning ? "运行正常" : "服务异常";
+                status += portListening ? $"，端口{port}监听正常" : $"，端口{port}监听异常";
+
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"Windows服务 [{serviceName}] {status}", "服务器重启检查");
+
+                // 如果服务异常或端口异常，尝试重启
+                if (!serviceRunning || !portListening)
+                {
+                    var restartAttempts = 0;
+                    const int maxRestartAttempts = 3;
+                    
+                    while (restartAttempts < maxRestartAttempts)
+                    {
+                        restartAttempts++;
+                        ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                            $"尝试重启Windows服务 [{serviceName}]，第{restartAttempts}次", "服务器重启检查");
+                            
+                        var (restartSuccess, restartResult) = RunWindowCmd($"net stop \"{serviceName}\" & net start \"{serviceName}\"");
+                        Task.Delay(10000).Wait(); // 等待10秒让服务启动
+                        
+                        // 重新检查状态
+                        (serviceSuccess, serviceResult) = RunWindowCmd($"sc query \"{serviceName}\"");
+                        serviceRunning = serviceSuccess && serviceResult.Contains("RUNNING");
+                        portListening = CheckPortInUse(port);
+                        
+                        if (serviceRunning && portListening)
+                        {
+                            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                                $"Windows服务 [{serviceName}] 重启成功", "服务器重启检查");
+                            break;
+                        }
+                        
+                        if (restartAttempts >= maxRestartAttempts)
+                        {
+                            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                                $"Windows服务 [{serviceName}] 重启失败，已达到最大重试次数", "服务器重启检查", LOG_TYPE.ErrorLog);
+                        }
+                        else
+                        {
+                            Task.Delay(15000).Wait(); // 等待15秒后重试
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"检查Windows服务 [{serviceName}] 时发生异常：{ex.Message}", "服务器重启检查", LOG_TYPE.ErrorLog);
+            }
+        }
+
+        /// <summary>
+        /// 检查kkfileview程序重启后状态
+        /// </summary>
+        private void CheckKkFileViewAfterRestart()
+        {
+            try
+            {
+                int targetPort = 8012;
+                bool isPortInUse = CheckPortInUse(targetPort);
+                
+                if (isPortInUse)
+                {
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                        $"kkfileview程序运行正常，端口 {targetPort} 监听正常", "服务器重启检查");
+                }
+                else
+                {
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                        $"kkfileview程序异常，端口 {targetPort} 未监听", "服务器重启检查", LOG_TYPE.ErrorLog);
+                    
+                    // 尝试启动kkfileview
+                    KkFileViewDog(MainSetting.Current.WinKkfileviewPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"检查kkfileview程序时发生异常：{ex.Message}", "服务器重启检查", LOG_TYPE.ErrorLog);
+            }
+        }
+
+        /// <summary>
+        /// 检查Linux系统端口是否被占用
+        /// </summary>
+        /// <param name="port">端口号</param>
+        /// <returns>true表示端口被占用，false表示端口空闲</returns>
+        private bool CheckLinuxPortInUse(int port)
+        {
+            try
+            {
+                // 使用netstat命令检查端口占用情况
+                var (success, result) = RunLinuxCmd($"netstat -tln | grep :{port}");
+                if (success && !string.IsNullOrWhiteSpace(result))
+                {
+                    // 检查结果中是否包含LISTEN状态
+                    return result.Contains("LISTEN");
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"检查Linux端口 {port} 占用情况时发生异常：{ex.Message}", "端口检查", LOG_TYPE.ErrorLog);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 处理RabbitMQ的1883端口问题
+        /// </summary>
+        /// <param name="containerName">容器名称</param>
+        private void HandleRabbitMqPortIssue(string containerName)
+        {
+            try
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"开始处理RabbitMQ容器 [{containerName}] 的1883端口问题", "RabbitMQ端口修复");
+
+                // 进入容器执行rabbitmq-plugins命令启用mqtt插件
+                var commands = new List<string>
+                {
+                    $"docker exec {containerName} rabbitmq-plugins enable rabbitmq_mqtt",
+                    $"docker exec {containerName} rabbitmq-plugins enable rabbitmq_web_mqtt",
+                    $"docker exec {containerName} rabbitmqctl restart"
+                };
+
+                foreach (var cmd in commands)
+                {
+                    var (success, result) = RunLinuxCmd(cmd);
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                        $"执行命令 [{cmd}] {(success ? "成功" : "失败")}：{result}", "RabbitMQ端口修复");
+                    
+                    Task.Delay(2000).Wait(); // 每个命令间隔2秒
+                }
+
+                // 等待一段时间后再次检查端口
+                Task.Delay(10000).Wait();
+                bool portFixed = CheckLinuxPortInUse(1883);
+                
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"RabbitMQ的1883端口修复{(portFixed ? "成功" : "失败")}", "RabbitMQ端口修复");
+
+                if (!portFixed)
+                {
+                    // 发送短信通知
+                    var _NoteInfo = new
+                    {
+                        NoteContent = $"RabbitMQ容器{containerName}的1883端口启动失败，需要人工处理",
+                        SendTime = DateTime.Now.AddSeconds(30),
+                        AppCode = "服务器监控"
+                    };
+                    SmsNoteJy(_NoteInfo.ToJson());
+                }
+            }
+            catch (Exception ex)
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"处理RabbitMQ端口问题时发生异常：{ex.Message}", "RabbitMQ端口修复", LOG_TYPE.ErrorLog);
             }
         }
 

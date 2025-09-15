@@ -9,6 +9,10 @@ namespace CenboGeneral
     public class MainSetting : Config<MainSetting>
     {
 
+        /// <summary>是否Docker部署</summary>
+        [Description("是否Docker部署")]
+        public Boolean IsDocker{ get; set; } = false;
+
         /// <summary>本身http服务端口</summary>
         [Description("本身http服务端口")]
         public int HttpPort { get; set; } = 13595;

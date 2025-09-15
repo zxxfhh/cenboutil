@@ -1,5 +1,4 @@
-﻿
-using CenboGeneral;
+﻿using CenboGeneral;
 
 #if DEBUG
 Console.Title = "Mq控制http中转服务";
@@ -15,9 +14,23 @@ catch (Exception ex)
 }
 
 Console.ReadKey();
+
 #else
 
-var svc = new MainService();
-svc.Main(args);
+if (MainSetting.Current.IsDocker)
+{
+    IHost host = Host.CreateDefaultBuilder(args)
+    .ConfigureServices(services =>
+    {
+        services.AddHostedService<Worker>();
+    })
+    .Build();
+    await host.RunAsync();
+}
+else
+{
+    var svc = new MainService();
+    svc.Main(args);
+}
 
 #endif
