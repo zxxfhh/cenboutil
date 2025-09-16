@@ -10,23 +10,16 @@ namespace CenboGeneral
     {
         /// <summary>是否Docker部署</summary>
         [Description("是否Docker部署")]
-        public Boolean IsDocker{ get; set; } = false;
+        public Boolean IsDocker { get; set; } = false;
         /// <summary>本身http服务端口</summary>
         [Description("本身http服务端口")]
         public int HttpPort { get; set; } = 13595;
-        /// <summary>Mqtt地址</summary>
-        [Description("Mqtt地址")]
-        public string MQHost { get; set; } = "192.168.0.76";
-        /// <summary>Mqtt用户</summary>
-        [Description("Mqtt用户")]
-        public string MQUser { get; set; } = "cenbo";
-        /// <summary>Mqtt密码</summary>
-        [Description("Mqtt密码")]
-        public string MQPass { get; set; } = "veITwUIjDR";
-        /// <summary>Mqtt接收key</summary>
-        [Description("Mqtt接收key")]
-        public string MqRoutingKey { get; set; } = "httpservice/exchange/receive";
 
+        /// <summary>多MQTT服务器配置（JSON格式）</summary>
+        [Description("多MQTT服务器配置（JSON格式）")]
+        public string MQServersConfig { get; set; } = "[{\"MQHost\":\"mq.cenbo.com\",\"MQUser\":\"cenbo\",\"MQPass\":\"veITwUIjDtCdX1ak\",\"MqRoutingKey\":\"zhnyhttpservice/exchange/receive\"},{\"MQHost\":\"192.168.99.100\",\"MQUser\":\"cenbo\",\"MQPass\":\"veITwUIjDR\",\"MqRoutingKey\":\"httpservice/exchange/receive\"}]";
+
+        /// <summary>短信调用Url</summary>
         [Description("短信调用Url")]
         public String SmsUrl { get; set; } = "http://dx.zjsjy.gov/SendSmsService/SmpWebService.asmx";
         /// <summary>短信通知默认号码(,隔开)</summary>
@@ -61,7 +54,7 @@ namespace CenboGeneral
         public Boolean IsXinChuang { get; set; } = false;
         /// <summary>是否服务器重启监听</summary>
         [Description("是否服务器重启监听")]
-        public Boolean IsFwqRestartListen{ get; set; } = false;
+        public Boolean IsFwqRestartListen { get; set; } = false;
     }
 }
 

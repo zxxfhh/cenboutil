@@ -2,7 +2,6 @@
 using CenboNew.ServiceLog;
 using MQTTnet;
 using MQTTnet.Protocol;
-using NewLife.Agent;
 using NewLife.Http;
 using NewLife.Threading;
 using Newtonsoft.Json;
@@ -33,10 +32,6 @@ namespace CenboGeneral
         /// 每天6点重启服务器定时器
         /// </summary>
         public TimerX timerfwqrestart = null;
-        /// <summary>
-        /// Mqtt重连失败次数
-        /// </summary>
-        private int mqttConnectFailCount = 0;
 
         #region 开启和关闭
 
@@ -46,6 +41,10 @@ namespace CenboGeneral
             timerfwqrestart?.Dispose();
             timerbusinessdog?.Dispose();
             _httpServer?.Stop("服务停止");
+
+            // 关闭所有MQTT连接
+            DisconnectAllMqttClients();
+
             ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"服务端口[{MainSetting.Current.HttpPort}]关闭成功", "结束服务");
         }
 
@@ -660,110 +659,211 @@ namespace CenboGeneral
 
         #region Mqtt转发
 
-        private IMqttClient? mqttClient;
-        private MqttClientOptions? clientOptions;
+        /// <summary>
+        /// 多MQTT客户端连接管理
+        /// </summary>
+        private List<MqttClientWrapper> mqttClients = new List<MqttClientWrapper>();
+        /// <summary>
+        /// 轮询索引（用于轮询发布消息）
+        /// </summary>
+        private int roundRobinIndex = 0;
+        /// <summary>
+        /// 线程安全锁
+        /// </summary>
+        private readonly object mqttLock = new object();
         public void MqttConnect(Object obj)
         {
+            try
+            {
+                // 解析多MQTT配置
+                var mqttConfigs = JsonConvert.DeserializeObject<List<MqttConfig>>(MainSetting.Current.MQServersConfig);
+                if (mqttConfigs == null || !mqttConfigs.Any())
+                {
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                        "未找到有效的MQTT服务器配置，请检查MQServersConfig配置", "MQTT", LOG_TYPE.ErrorLog);
+                    return;
+                }
+
+                lock (mqttLock)
+                {
+                    // 清理已有连接
+                    DisconnectAllMqttClients();
+                    mqttClients.Clear();
+
+                    // 为每个配置创建连接
+                    foreach (var config in mqttConfigs)
+                    {
+                        var wrapper = CreateMqttClientWrapper(config);
+                        mqttClients.Add(wrapper);
+
+                        // 异步连接
+                        Task.Run(() => ConnectMqttClient(wrapper));
+                    }
+                }
+
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"开始连接{mqttConfigs.Count}个MQTT服务器", "MQTT");
+            }
+            catch (Exception ex)
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"多MQTT连接失败：{ex.Message}", "MQTT", LOG_TYPE.ErrorLog);
+            }
+        }
+
+        /// <summary>
+        /// 创建MQTT客户端包装器
+        /// </summary>
+        /// <param name="config"></param>
+        /// <returns></returns>
+        private MqttClientWrapper CreateMqttClientWrapper(MqttConfig config)
+        {
+            long snowId = SnowModel.Instance.NewId();
             var optionsBuilder = new MqttClientOptionsBuilder()
-                .WithTcpServer(MainSetting.Current.MQHost, 1883) // 要访问的mqtt服务端的 ip 和 端口号
-                .WithCredentials(MainSetting.Current.MQUser, MainSetting.Current.MQPass) // 要访问的mqtt服务端的用户名和密码
-                .WithClientId($"CenboGeneral_{SnowModel.Instance.NewId()}") // 设置客户端id
-                .WithProtocolVersion(MQTTnet.Formatter.MqttProtocolVersion.V311)  // 强制使用 3.1.1
+                .WithTcpServer(config.MQHost, 1883)
+                .WithCredentials(config.MQUser, config.MQPass)
+                .WithClientId($"CenboGeneral_{snowId}")
+                .WithProtocolVersion(MQTTnet.Formatter.MqttProtocolVersion.V311)
                 .WithCleanSession(false)
                 .WithKeepAlivePeriod(TimeSpan.FromSeconds(15))
                 .WithTlsOptions(new MqttClientTlsOptions
                 {
-                    UseTls = false  // 是否使用 tls加密
+                    UseTls = false
                 });
 
-            clientOptions = optionsBuilder.Build();
-
-            mqttClient = new MqttClientFactory().CreateMqttClient();
-            mqttClient.ConnectedAsync += MqttConnectedAsync; // 客户端连接成功事件
-            mqttClient.DisconnectedAsync += MqttDisConnectedAsync; // 客户端连接关闭事件
-            mqttClient.ApplicationMessageReceivedAsync += MqttReceivedAsync; // 收到消息事件
-
-            mqttClient.ConnectAsync(clientOptions);
-            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "Mqtt连接", "MQTT");
-        }
-
-        /// <summary>
-        /// 客户端连接关闭事件
-        /// </summary>
-        /// <param name="arg"></param>
-        /// <returns></returns>
-        private Task MqttDisConnectedAsync(MqttClientDisconnectedEventArgs arg)
-        {
-            mqttConnectFailCount++;
-            Task.Delay(60 * 1000).Wait();
-            mqttClient.ConnectAsync(clientOptions);
-            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "Mqtt连接断开", "MQTT");
-            if (mqttConnectFailCount > 20)
+            var client = new MqttClientFactory().CreateMqttClient();
+            var wrapper = new MqttClientWrapper
             {
-                // 检查服务状态
-                var (checkSuccess, checkResult) = RunLinuxCmd($"systemctl is-active rabbitmq");
-                //短信通知
-                var _NoteInfo = new
-                {
-                    NoteContent = $"MQTT(20分钟)离线状态：{checkResult}",
-                    SendTime = DateTime.Now.AddSeconds(50),
-                    AppCode = "南湖劳安"
-                };
-                SmsNoteJy(_NoteInfo.ToJson());
-                ////重启mqtt服务
-                //string wincmd = "net stop RabbitMQ & net start RabbitMQ";
-                //string linxcmd = "docker restart rabbitmq";
+                Config = config,
+                Client = client,
+                Options = optionsBuilder.Build(),
+                ConnectionId = $"{snowId}"
+            };
 
-                //// 检测操作系统并执行相应的命令
-                //bool isSuccess = false;
-                //string resultMessage = "";
+            // 绑定事件
+            client.ConnectedAsync += (args) => MqttMultiConnectedAsync(wrapper, args);
+            client.DisconnectedAsync += (args) => MqttMultiDisConnectedAsync(wrapper, args);
+            client.ApplicationMessageReceivedAsync += (args) => MqttMultiReceivedAsync(wrapper, args);
 
-                //if (Environment.OSVersion.Platform == PlatformID.Unix)
-                //{
-                //    // Linux系统，以root执行
-                //    (isSuccess, resultMessage) = RunLinuxCmd(linxcmd);
-                //}
-                //else
-                //{
-                //    // Windows系统，以管理员模式执行
-                //    (isSuccess, resultMessage) = RunWindowCmd(wincmd);
-                //}
-                //if (isSuccess) mqttConnectFailCount = 0;
-            }
-
-            return Task.CompletedTask;
+            return wrapper;
         }
 
         /// <summary>
-        /// 客户端连接成功事件
+        /// 连接单个MQTT客户端
         /// </summary>
-        /// <param name="arg"></param>
-        /// <returns></returns>
-        private Task MqttConnectedAsync(MqttClientConnectedEventArgs arg)
+        /// <param name="wrapper"></param>
+        private async void ConnectMqttClient(MqttClientWrapper wrapper)
         {
-            // 订阅消息主题
-            // MqttQualityOfServiceLevel: （QoS）:  0 最多一次，接收者不确认收到消息，并且消息不被发送者存储和重新发送提供与底层 TCP 协议相同的保证。
-            // 1: 保证一条消息至少有一次会传递给接收方。发送方存储消息，直到它从接收方收到确认收到消息的数据包。一条消息可以多次发送或传递。
-            // 2: 保证每条消息仅由预期的收件人接收一次。级别2是最安全和最慢的服务质量级别，保证由发送方和接收方之间的至少两个请求/响应（四次握手）。
-            mqttClient.SubscribeAsync(MainSetting.Current.MqRoutingKey, MqttQualityOfServiceLevel.AtLeastOnce);
-            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "Mqtt重连成功并订阅", "MQTT");
+            try
+            {
+                await wrapper.Client.ConnectAsync(wrapper.Options);
+                wrapper.LastConnectTime = DateTime.Now;
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"MQTT连接尝试: ({wrapper.Config.MQHost})", "MQTT");
+            }
+            catch (Exception ex)
+            {
+                wrapper.ConnectFailCount++;
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"MQTT连接失败: {ex.Message}", "MQTT", LOG_TYPE.ErrorLog);
+            }
+        }
+
+        /// <summary>
+        /// 断开所有MQTT连接
+        /// </summary>
+        private void DisconnectAllMqttClients()
+        {
+            lock (mqttLock)
+            {
+                foreach (var wrapper in mqttClients)
+                {
+                    try
+                    {
+                        wrapper.Client?.DisconnectAsync();
+                        wrapper.Client?.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                            $"断开MQTT连接失败: {wrapper.Config?.MQHost} - {ex.Message}", "MQTT", LOG_TYPE.ErrorLog);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 多MQTT客户端连接成功事件
+        /// </summary>
+        /// <param name="wrapper"></param>
+        /// <param name="arg"></param>
+        /// <returns></returns>
+        private Task MqttMultiConnectedAsync(MqttClientWrapper wrapper, MqttClientConnectedEventArgs arg)
+        {
+            try
+            {
+                wrapper.ConnectFailCount = 0;
+                // 订阅消息主题
+                wrapper.Client.SubscribeAsync(wrapper.Config.MqRoutingKey, MqttQualityOfServiceLevel.AtLeastOnce);
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"MQTT连接成功并订阅: {wrapper.Config?.MQHost}-{wrapper.Config?.MqRoutingKey}", "MQTT");
+            }
+            catch (Exception ex)
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"MQTT订阅失败: {wrapper.Config?.MQHost} - {ex.Message}", "MQTT", LOG_TYPE.ErrorLog);
+            }
+            return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// 多MQTT客户端断开连接事件
+        /// </summary>
+        /// <param name="wrapper"></param>
+        /// <param name="arg"></param>
+        /// <returns></returns>
+        private Task MqttMultiDisConnectedAsync(MqttClientWrapper wrapper, MqttClientDisconnectedEventArgs arg)
+        {
+            wrapper.ConnectFailCount++;
+            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                $"MQTT连接断开: {wrapper.Config?.MQHost}, 失败次数: {wrapper.ConnectFailCount}", "MQTT");
+
+            // 延迟重连
+            Task.Run(async () =>
+            {
+                await Task.Delay(60 * 1000); // 等待1分钟再重连
+                try
+                {
+                    if (!wrapper.Client.IsConnected)
+                    {
+                        await wrapper.Client.ConnectAsync(wrapper.Options);
+                        wrapper.LastConnectTime = DateTime.Now;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                        $"MQTT重连失败: {wrapper.Config?.MQHost} - {ex.Message}", "MQTT", LOG_TYPE.ErrorLog);
+                }
+            });
 
             return Task.CompletedTask;
         }
 
         /// <summary>
-        /// 收到消息事件
+        /// 多MQTT客户端收到消息事件
         /// </summary>
+        /// <param name="wrapper"></param>
         /// <param name="arg"></param>
         /// <returns></returns>
-        private Task MqttReceivedAsync(MqttApplicationMessageReceivedEventArgs arg)
+        private Task MqttMultiReceivedAsync(MqttClientWrapper wrapper, MqttApplicationMessageReceivedEventArgs arg)
         {
             var buffer = arg.ApplicationMessage.Payload.ToArray();
             if (buffer != null && buffer.Length > 0)
             {
                 string strdata = Encoding.UTF8.GetString(buffer);
                 if (strdata == "null" || strdata.IsZxxNullOrEmpty()) return Task.CompletedTask;
-                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"【qos等级={arg.ApplicationMessage.QualityOfServiceLevel}】 Json数据：{strdata}", "MQTT");
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"【来源: {wrapper.Config?.MQHost}】【qos等级={arg.ApplicationMessage.QualityOfServiceLevel}】 Json数据：{strdata}", "MQTT");
+
                 try
                 {
                     JObject jo = JObject.Parse(strdata);
@@ -777,38 +877,34 @@ namespace CenboGeneral
                             {
                                 check.datastr = strdata;
                                 check.cantoken.Cancel();
-                                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"返回成功:{strdata}", key);
+                                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                                    $"返回成功({wrapper.Config?.MQHost}):{strdata}", key);
                             }
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, ex.ToString(), "错误", LOG_TYPE.ErrorLog);
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                         $"MQTT数据处理: {wrapper.Config?.MQHost} - {ex.Message}", "MQTT", LOG_TYPE.ErrorLog);
                 }
             }
             return Task.CompletedTask;
         }
-
         public bool MqttPublish(string publishtopic, string data)
         {
             bool isresult = false;
             try
             {
-                if (mqttClient.IsConnected)
+                if (mqttClients.Any())
                 {
-                    var message = new MqttApplicationMessage
-                    {
-                        Topic = publishtopic,
-                        PayloadSegment = new ArraySegment<byte>(Encoding.UTF8.GetBytes(data)),
-                        QualityOfServiceLevel = MqttQualityOfServiceLevel.AtLeastOnce,
-                        Retain = false  // 服务端是否保留消息。true为保留，如果有新的订阅者连接，就会立马收到该消息。
-                    };
-                    var ret = mqttClient.PublishAsync(message).Result;
-                    if (ret.IsSuccess)
-                    {
-                        isresult = true;
-                    }
+                    // 多MQTT客户端发布
+                    isresult = PublishToMultipleMqttClients(publishtopic, data);
+                }
+                else
+                {
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                        "MQTT客户端未连接，无法发布消息", "MQTT", LOG_TYPE.ErrorLog);
                 }
             }
             catch (Exception ex)
@@ -816,6 +912,69 @@ namespace CenboGeneral
                 ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, ex.ToString(), "错误", LOG_TYPE.ErrorLog);
             }
             return isresult;
+        }
+
+        /// <summary>
+        /// 向多MQTT客户端发布消息
+        /// </summary>
+        /// <param name="publishtopic"></param>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        private bool PublishToMultipleMqttClients(string publishtopic, string data)
+        {
+            bool hasPublished = false;
+            try
+            {
+                var message = new MqttApplicationMessage
+                {
+                    Topic = publishtopic,
+                    PayloadSegment = new ArraySegment<byte>(Encoding.UTF8.GetBytes(data)),
+                    QualityOfServiceLevel = MqttQualityOfServiceLevel.AtLeastOnce,
+                    Retain = false
+                };
+
+                lock (mqttLock)
+                {
+                    var connectedClients = mqttClients.Where(x => x.IsConnected).ToList();
+                    if (!connectedClients.IsZxxAny())
+                    {
+                        ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "没有可用的MQTT连接", "MQTT", LOG_TYPE.ErrorLog);
+                        return false;
+                    }
+                    int successCount = 0;
+                    foreach (var client in connectedClients)
+                    {
+                        try
+                        {
+                            var ret = client.Client.PublishAsync(message).Result;
+                            if (ret.IsSuccess)
+                            {
+                                successCount++;
+                                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                                    $"广播发送成功: {client.Config.MQHost} -> {client.Config.MqRoutingKey}", "MQTT");
+                            }
+                            else
+                            {
+                                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                                    $"广播发送失败: {client.Config.MQHost} -> {client.Config.MqRoutingKey}", "MQTT", LOG_TYPE.ErrorLog);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                                $"广播发送异常: {client.Config.MQHost} - {ex.Message}", "MQTT", LOG_TYPE.ErrorLog);
+                        }
+                    }
+                    hasPublished = successCount > 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                    $"多MQTT发布失败：{ex.Message}", "MQTT", LOG_TYPE.ErrorLog);
+            }
+
+            return hasPublished;
         }
 
         #endregion
