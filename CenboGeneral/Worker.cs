@@ -1,8 +1,4 @@
-﻿using CenBoCommon.Zxx;
-using CenboNew.ServiceLog;
-using Microsoft.Extensions.Hosting;
-using NewLife.Http;
-using NewLife.Threading;
+﻿using Microsoft.Extensions.Hosting;
 
 namespace CenboGeneral
 {

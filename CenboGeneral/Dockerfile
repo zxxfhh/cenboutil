@@ -2,7 +2,7 @@
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base  
 WORKDIR /app   
-EXPOSE 8080 
+EXPOSE 13595
 EXPOSE 8081   
 
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime

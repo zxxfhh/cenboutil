@@ -1,4 +1,4 @@
-﻿﻿using CenBoCommon.Zxx;
+﻿using CenBoCommon.Zxx;
 using CenboNew.ServiceLog;
 using MQTTnet;
 using MQTTnet.Protocol;
@@ -74,10 +74,10 @@ namespace CenboGeneral
             Thread t = new Thread(tws.ThreadProc) { IsBackground = true };
             t.Start();
 
-            ////服务器重启监听
-            //ThreadWithState<object[]> tws2 = new ThreadWithState<object[]>(new object[] { }, FwqRestartCheck);
-            //Thread t2 = new Thread(tws2.ThreadProc) { IsBackground = true };
-            //t2.Start();
+            //服务器重启监听
+            ThreadWithState<object[]> tws2 = new ThreadWithState<object[]>(new object[] { }, FwqRestartCheck);
+            Thread t2 = new Thread(tws2.ThreadProc) { IsBackground = true };
+            t2.Start();
         }
 
         #endregion
@@ -1302,13 +1302,14 @@ namespace CenboGeneral
         {
             try
             {
+                if (!MainSetting.Current.IsFwqRestartListen) return;
                 //2分钟之后执行一次，确保别的服务启动完成。
                 Task.Delay(2 * 60 * 1000).Wait();
                 ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "开始执行服务器重启后检查", "服务器重启检查");
 
                 // 服务端口映射配置
                 Dictionary<string, int> servicePortMap = new Dictionary<string, int>();
-                
+
                 if (Environment.OSVersion.Platform == PlatformID.Unix)
                 {
                     // Linux系统检查
@@ -1457,32 +1458,32 @@ namespace CenboGeneral
                 {
                     var restartAttempts = 0;
                     const int maxRestartAttempts = 3;
-                    
+
                     while (restartAttempts < maxRestartAttempts)
                     {
                         restartAttempts++;
                         ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
                             $"尝试重启系统服务 [{serviceName}]，第{restartAttempts}次", "服务器重启检查");
-                            
+
                         var (restartSuccess, restartResult) = RunLinuxCmd($"systemctl restart {serviceName}");
                         Task.Delay(5000).Wait(); // 等待5秒让服务启动
-                        
+
                         // 重新检查状态
                         (serviceSuccess, serviceResult) = RunLinuxCmd($"systemctl is-active {serviceName}");
                         serviceRunning = serviceSuccess && serviceResult.Trim().Equals("active", StringComparison.OrdinalIgnoreCase);
-                        
+
                         if (port > 0)
                         {
                             portListening = CheckLinuxPortInUse(port);
                         }
-                        
+
                         if (serviceRunning && (port == 0 || portListening))
                         {
                             ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
                                 $"系统服务 [{serviceName}] 重启成功", "服务器重启检查");
                             break;
                         }
-                        
+
                         if (restartAttempts >= maxRestartAttempts)
                         {
                             ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
@@ -1530,33 +1531,33 @@ namespace CenboGeneral
                 {
                     var restartAttempts = 0;
                     const int maxRestartAttempts = 3;
-                    
+
                     while (restartAttempts < maxRestartAttempts)
                     {
                         restartAttempts++;
                         ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
                             $"尝试重启Docker容器 [{containerName}]，第{restartAttempts}次", "服务器重启检查");
-                            
+
                         var (restartSuccess, restartResult) = RunLinuxCmd($"docker restart {containerName}");
                         Task.Delay(10000).Wait(); // 等待10秒让容器启动
-                        
+
                         // 重新检查状态
                         (containerSuccess, containerResult) = RunLinuxCmd(checkCmd);
                         containerRunning = containerSuccess && containerResult.Contains("Up");
                         portListening = CheckLinuxPortInUse(port);
-                        
+
                         if (containerRunning && portListening)
                         {
                             ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
                                 $"Docker容器 [{containerName}] 重启成功", "服务器重启检查");
                             break;
                         }
-                        
+
                         if (restartAttempts >= maxRestartAttempts)
                         {
                             ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
                                 $"Docker容器 [{containerName}] 重启失败，已达到最大重试次数", "服务器重启检查", LOG_TYPE.ErrorLog);
-                                
+
                             // 特别处理RabbitMQ的1883端口问题
                             if (containerName.ToLower().Contains("rabbitmq") && port == 1883)
                             {
@@ -1604,28 +1605,28 @@ namespace CenboGeneral
                 {
                     var restartAttempts = 0;
                     const int maxRestartAttempts = 3;
-                    
+
                     while (restartAttempts < maxRestartAttempts)
                     {
                         restartAttempts++;
                         ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
                             $"尝试重启Windows服务 [{serviceName}]，第{restartAttempts}次", "服务器重启检查");
-                            
+
                         var (restartSuccess, restartResult) = RunWindowCmd($"net stop \"{serviceName}\" & net start \"{serviceName}\"");
                         Task.Delay(10000).Wait(); // 等待10秒让服务启动
-                        
+
                         // 重新检查状态
                         (serviceSuccess, serviceResult) = RunWindowCmd($"sc query \"{serviceName}\"");
                         serviceRunning = serviceSuccess && serviceResult.Contains("RUNNING");
                         portListening = CheckPortInUse(port);
-                        
+
                         if (serviceRunning && portListening)
                         {
                             ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
                                 $"Windows服务 [{serviceName}] 重启成功", "服务器重启检查");
                             break;
                         }
-                        
+
                         if (restartAttempts >= maxRestartAttempts)
                         {
                             ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
@@ -1654,7 +1655,7 @@ namespace CenboGeneral
             {
                 int targetPort = 8012;
                 bool isPortInUse = CheckPortInUse(targetPort);
-                
+
                 if (isPortInUse)
                 {
                     ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
@@ -1664,7 +1665,7 @@ namespace CenboGeneral
                 {
                     ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
                         $"kkfileview程序异常，端口 {targetPort} 未监听", "服务器重启检查", LOG_TYPE.ErrorLog);
-                    
+
                     // 尝试启动kkfileview
                     KkFileViewDog(MainSetting.Current.WinKkfileviewPath);
                 }
@@ -1727,14 +1728,14 @@ namespace CenboGeneral
                     var (success, result) = RunLinuxCmd(cmd);
                     ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
                         $"执行命令 [{cmd}] {(success ? "成功" : "失败")}：{result}", "RabbitMQ端口修复");
-                    
+
                     Task.Delay(2000).Wait(); // 每个命令间隔2秒
                 }
 
                 // 等待一段时间后再次检查端口
                 Task.Delay(10000).Wait();
                 bool portFixed = CheckLinuxPortInUse(1883);
-                
+
                 ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
                     $"RabbitMQ的1883端口修复{(portFixed ? "成功" : "失败")}", "RabbitMQ端口修复");
 

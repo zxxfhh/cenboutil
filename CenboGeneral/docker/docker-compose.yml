@@ -13,13 +13,13 @@
     environment:
       ASPNETCORE_ENVIRONMENT: "Production"
     volumes:
-      - /home/docker_log/cenbogeneral.host/logs:/app/Log
-      - /home/docker_log/cenbogeneral.host/logdb:/app/LogDB
-      - /home/docker_log/cenbogeneral.host/config:/app/Config
+      - /home/docker_log/cenbogeneral/logs:/app/Log
+      - /home/docker_log/cenbogeneral/logdb:/app/LogDB
+      - /home/docker_log/cenbogeneral/config:/app/Config
     networks:
       - cenbogeneral-network
     ports:
-      - 13595:8080
+      - 13595:13595
 
 networks:
   cenbogeneral-network:

@@ -61,8 +61,6 @@ namespace CenboGeneral
         /// <summary>收件人邮箱地址集合(逗号隔开)</summary>
         [Description("收件人邮箱地址集合(逗号隔开)")]
         public String ReceiveEmails { get; set; } = "609912601@qq.com";
-
-
         /// <summary>是否每天7点重启服务器</summary>
         [Description("是否每天7点重启服务器")]
         public Boolean IsFwqRestart { get; set; } = false;
@@ -78,6 +76,9 @@ namespace CenboGeneral
         /// <summary>是否信创</summary>
         [Description("是否信创")]
         public Boolean IsXinChuang { get; set; } = false;
+        /// <summary>是否服务器重启监听</summary>
+        [Description("是否服务器重启监听")]
+        public Boolean IsFwqRestartListen{ get; set; } = false;
     }
 }
 

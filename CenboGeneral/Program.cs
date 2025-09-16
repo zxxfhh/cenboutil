@@ -1,4 +1,6 @@
 ﻿using CenboGeneral;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 #if DEBUG
 Console.Title = "Mq控制http中转服务";
