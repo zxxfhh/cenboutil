@@ -831,7 +831,7 @@ namespace CenboGeneral
             // 延迟重连
             await Task.Run(async () =>
              {
-                 await Task.Delay(5 * 1000); // 等待1分钟再重连
+                 await Task.Delay(60 * 1000); // 等待1分钟再重连
                  try
                  {
                      if (!wrapper.Client.IsConnected)
