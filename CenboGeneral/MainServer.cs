@@ -13,6 +13,7 @@ using System.Security.Principal;
 using System.ServiceModel;
 using System.ServiceModel.Channels;
 using System.Text;
+using static NewLife.Remoting.ApiHttpClient;
 
 namespace CenboGeneral
 {
@@ -816,12 +817,26 @@ namespace CenboGeneral
         {
             wrapper.ConnectFailCount++;
             ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                $"MQTT连接断开: {wrapper.Config?.MQHost}, 失败次数: {wrapper.ConnectFailCount}", "MQTT");
+                $"MQTT连接断开: {wrapper.Config?.MQHost}, 失败次数: {wrapper.ConnectFailCount}{(wrapper.ConnectFailCount >= 10 ? "执行重启" : "")}", "MQTT");
 
+            if (wrapper.ConnectFailCount >= 10)
+            {
+                bool isSuccess = false;
+                if (Environment.OSVersion.Platform == PlatformID.Unix)
+                {
+                    isSuccess = LinuxServiceDog("rabbitmq");
+                }
+                else
+                {
+                    isSuccess = WindowsServiceDog("RabbitMQ");
+                }
+                wrapper.ConnectFailCount = 0;
+                await Task.Delay(60 * 1000);
+            }
             // 延迟重连
             await Task.Run(async () =>
              {
-                 await Task.Delay(60 * 1000); // 等待1分钟再重连
+                 await Task.Delay(5 * 1000); // 等待1分钟再重连
                  try
                  {
                      if (!wrapper.Client.IsConnected)
