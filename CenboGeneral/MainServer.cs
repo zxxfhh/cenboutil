@@ -672,8 +672,7 @@ namespace CenboGeneral
                 var mqttConfigs = JsonConvert.DeserializeObject<List<MqttConfig>>(MainSetting.Current.MQServersConfig);
                 if (mqttConfigs == null || !mqttConfigs.Any())
                 {
-                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                        "未找到有效的MQTT服务器配置，请检查MQServersConfig配置", "MQTT", LOG_TYPE.ErrorLog);
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "未找到有效的MQTT服务器配置，请检查MQServersConfig配置", "MQTT");
                     return;
                 }
 
@@ -1227,8 +1226,7 @@ namespace CenboGeneral
                         if (!startSuccess)
                         {
                             ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                                $"[kkfileview] 程序启动超时，等待 {maxWaitCount} 秒后端口 {targetPort} 仍未被占用，第 {currentAttempt} 次尝试",
-                                "常规服务看守", LOG_TYPE.ErrorLog);
+                                $"[kkfileview] 程序启动超时，等待 {maxWaitCount} 秒后端口 {targetPort} 仍未被占用，第 {currentAttempt} 次尝试", "常规服务看守");
                         }
                     }
                     catch (Exception ex)
@@ -1248,8 +1246,7 @@ namespace CenboGeneral
                 if (!startSuccess)
                 {
                     ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                        $"[kkfileview] 程序已达到最大重试次数 {maxRetries}，最终启动失败",
-                        "常规服务看守", LOG_TYPE.ErrorLog);
+                        $"[kkfileview] 程序已达到最大重试次数 {maxRetries}，最终启动失败", "常规服务看守");
                 }
             }
             catch (Exception ex)
@@ -1336,7 +1333,16 @@ namespace CenboGeneral
             string resultMessage = "";
             try
             {
-                // 检查容器状态
+                // 首先检查容器是否存在（包括所有状态的容器）
+                string existsCmd = $"docker ps -a --filter \"name={containerName}\" --format \"{{{{.Names}}}}\"";
+                var (existsSuccess, existsResult) = RunLinuxCmd(existsCmd);
+                if (!existsSuccess || string.IsNullOrWhiteSpace(existsResult) || !existsResult.Contains(containerName))
+                {
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"Docker容器 [{containerName}] 不存在", "常规服务看守");
+                    return false;
+                }
+
+                // 检查容器运行状态（只检查正在运行的容器）
                 string checkCmd = $"docker ps --filter \"name={containerName}\" --format \"table {{{{.Names}}}}\\t{{{{.Status}}}}\"";
                 var (checkSuccess, checkResult) = RunLinuxCmd(checkCmd);
                 if (checkSuccess && checkResult.Contains("Up"))
@@ -1346,11 +1352,10 @@ namespace CenboGeneral
                     return true;
                 }
 
-                // 尝试重启容器
-                string restartCmd = $"docker start {containerName}";
+                string restartCmd = $"docker restart {containerName}";
                 (restartSuccess, resultMessage) = RunLinuxCmd(restartCmd);
                 ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                       $"Docker容器[{containerName}] 重启{(restartSuccess ? "成功" : "失败")}：{resultMessage}", "常规服务看守");
+                       $"Docker容器[{containerName}] 启动{(restartSuccess ? "成功" : "失败")}：{resultMessage}", "常规服务看守");
             }
             catch (Exception ex)
             {
@@ -1436,8 +1441,8 @@ namespace CenboGeneral
             try
             {
                 if (!MainSetting.Current.IsFwqRestartListen) return;
-                //2分钟之后执行一次，确保别的服务启动完成。
-                Task.Delay(2 * 60 * 1000).Wait();
+                //3分钟之后执行一次，确保别的服务启动完成。
+                Task.Delay(3 * 60 * 1000).Wait();
                 ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "开始执行服务器重启后检查", "服务器重启检查");
 
                 // 服务端口映射配置
@@ -1619,8 +1624,7 @@ namespace CenboGeneral
 
                         if (restartAttempts >= maxRestartAttempts)
                         {
-                            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                                $"系统服务 [{serviceName}] 重启失败，已达到最大重试次数", "服务器重启检查", LOG_TYPE.ErrorLog);
+                            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"系统服务 [{serviceName}] 重启失败，已达到最大重试次数", "服务器重启检查");
                         }
                         else
                         {
@@ -1645,7 +1649,17 @@ namespace CenboGeneral
         {
             try
             {
-                // 检查容器状态
+                // 首先检查容器是否存在（包括所有状态的容器）
+                string existsCmd = $"docker ps -a --filter \"name={containerName}\" --format \"{{{{.Names}}}}\"";
+                var (existsSuccess, existsResult) = RunLinuxCmd(existsCmd);
+
+                if (!existsSuccess || string.IsNullOrWhiteSpace(existsResult) || !existsResult.Contains(containerName))
+                {
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"Docker容器 [{containerName}] 不存在", "服务器重启检查");
+                    return;
+                }
+
+                // 检查容器运行状态（只检查正在运行的容器）
                 string checkCmd = $"docker ps --filter \"name={containerName}\" --format \"table {{{{.Names}}}}\\t{{{{.Status}}}}\"";
                 var (containerSuccess, containerResult) = RunLinuxCmd(checkCmd);
                 bool containerRunning = containerSuccess && containerResult.Contains("Up");
@@ -1653,7 +1667,7 @@ namespace CenboGeneral
                 // 检查端口状态
                 bool portListening = CheckLinuxPortInUse(port);
 
-                string status = containerRunning ? "运行正常" : "容器异常";
+                string status = containerRunning ? "运行正常" : "容器未运行";
                 status += portListening ? $"，端口{port}监听正常" : $"，端口{port}监听异常";
 
                 ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
@@ -1669,9 +1683,11 @@ namespace CenboGeneral
                     {
                         restartAttempts++;
                         ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                            $"尝试重启Docker容器 [{containerName}]，第{restartAttempts}次", "服务器重启检查");
+                            $"尝试{(containerRunning ? "重启" : "启动")}Docker容器 [{containerName}]，第{restartAttempts}次", "服务器重启检查");
 
-                        var (restartSuccess, restartResult) = RunLinuxCmd($"docker restart {containerName}");
+                        // 根据容器状态选择命令
+                        string command = containerRunning ? $"docker restart {containerName}" : $"docker start {containerName}";
+                        var (restartSuccess, restartResult) = RunLinuxCmd(command);
                         Task.Delay(10000).Wait(); // 等待10秒让容器启动
 
                         // 重新检查状态
@@ -1682,14 +1698,13 @@ namespace CenboGeneral
                         if (containerRunning && portListening)
                         {
                             ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                                $"Docker容器 [{containerName}] 重启成功", "服务器重启检查");
+                                $"Docker容器 [{containerName}] 启动成功", "服务器重启检查");
                             break;
                         }
 
                         if (restartAttempts >= maxRestartAttempts)
                         {
-                            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                                $"Docker容器 [{containerName}] 重启失败，已达到最大重试次数", "服务器重启检查", LOG_TYPE.ErrorLog);
+                            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"Docker容器 [{containerName}] 启动失败，已达到最大重试次数", "服务器重启检查");
 
                             // 特别处理RabbitMQ的1883端口问题
                             if (containerName.ToLower().Contains("rabbitmq") && port == 1883)
@@ -1762,8 +1777,7 @@ namespace CenboGeneral
 
                         if (restartAttempts >= maxRestartAttempts)
                         {
-                            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                                $"Windows服务 [{serviceName}] 重启失败，已达到最大重试次数", "服务器重启检查", LOG_TYPE.ErrorLog);
+                            ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"Windows服务 [{serviceName}] 重启失败，已达到最大重试次数", "服务器重启检查");
                         }
                         else
                         {
@@ -1796,8 +1810,7 @@ namespace CenboGeneral
                 }
                 else
                 {
-                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                        $"kkfileview程序异常，端口 {targetPort} 未监听", "服务器重启检查", LOG_TYPE.ErrorLog);
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"kkfileview程序异常，端口 {targetPort} 未监听", "服务器重启检查");
 
                     // 尝试启动kkfileview
                     KkFileViewDog(MainSetting.Current.WinKkfileviewPath);
