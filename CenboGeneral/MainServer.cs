@@ -824,7 +824,7 @@ namespace CenboGeneral
                 bool isSuccess = false;
                 if (Environment.OSVersion.Platform == PlatformID.Unix)
                 {
-                    isSuccess = LinuxServiceDog("rabbitmq");
+                    isSuccess = DockerContainerDog("rabbitmq");
                 }
                 else
                 {
@@ -1494,7 +1494,7 @@ namespace CenboGeneral
                 // 系统服务配置
                 Dictionary<string, int> systemServices = new Dictionary<string, int>
                 {
-                    { "mysqld", 3306 },
+                    { "mysqld", 6336 },
                     { "docker", 0 } // docker服务本身不监听特定端口
                 };
 
@@ -1502,23 +1502,23 @@ namespace CenboGeneral
                 Dictionary<string, int> dockerContainers = new Dictionary<string, int>();
                 if (!MainSetting.Current.IsXinChuang)
                 {
-                    dockerContainers.Add("mysql", 3306);
+                    dockerContainers.Add("mysql", 6306);
                     dockerContainers.Add("rabbitmq", 1883);
                     dockerContainers.Add("consul", 8500);
-                    dockerContainers.Add("nginx", 80);
+                    dockerContainers.Add("nginx", 8000);
                     dockerContainers.Add("redis", 6379);
                     dockerContainers.Add("kkfileview", 8012);
                 }
                 else
                 {
-                    dockerContainers.Add("nginx", 80);
+                    dockerContainers.Add("nginx", 8000);
                     dockerContainers.Add("consul", 8500);
                     dockerContainers.Add("rabbitmq", 1883);
-                    dockerContainers.Add("tidb", 4000);
-                    dockerContainers.Add("tendisplus", 6379);
-                    dockerContainers.Add("easysearch01", 9200);
-                    dockerContainers.Add("easysearch02", 9201);
-                    dockerContainers.Add("esconsole", 5601);
+                    dockerContainers.Add("tidb", 6336);
+                    dockerContainers.Add("tendisplus", 30000);
+                    dockerContainers.Add("easysearch01", 9002);
+                    dockerContainers.Add("easysearch02", 9200);
+                    dockerContainers.Add("esconsole", 9001);
                 }
 
                 // 检查系统服务
