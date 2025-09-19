@@ -13,7 +13,6 @@ using System.Security.Principal;
 using System.ServiceModel;
 using System.ServiceModel.Channels;
 using System.Text;
-using static NewLife.Remoting.ApiHttpClient;
 
 namespace CenboGeneral
 {
@@ -1313,7 +1312,16 @@ namespace CenboGeneral
             string resultMessage = "";
             try
             {
-                // 检查服务状态
+                // 首先检查服务是否存在
+                var (existsSuccess, existsResult) = RunLinuxCmd($"systemctl list-unit-files {serviceName}.service");
+                if (!existsSuccess || !existsResult.Contains($"{serviceName}.service"))
+                {
+                    ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
+                        $"系统服务 [{serviceName}] 不存在，跳过检查", "常规服务看守");
+                    return true; // 服务不存在时返回true，避免重复尝试
+                }
+
+                // 服务存在，检查服务运行状态
                 var (checkSuccess, checkResult) = RunLinuxCmd($"systemctl is-active {serviceName}");
                 if (checkSuccess && checkResult.Trim().Equals("active", StringComparison.OrdinalIgnoreCase))
                 {
@@ -1321,9 +1329,11 @@ namespace CenboGeneral
                         $"系统服务 [{serviceName}] 运行正常", "常规服务看守");
                     return true;
                 }
+
+                // 服务存在但未运行，尝试启动
                 (restartSuccess, resultMessage) = RunLinuxCmd($"systemctl start {serviceName}");
                 ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName,
-                    $"系统服务 [{serviceName}] 重启{(restartSuccess ? "成功" : "失败")}：{resultMessage}", "常规服务看守");
+                    $"系统服务 [{serviceName}] 启动{(restartSuccess ? "成功" : "失败")}：{resultMessage}", "常规服务看守");
             }
             catch (Exception ex)
             {
