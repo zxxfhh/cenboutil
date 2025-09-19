@@ -52,9 +52,6 @@ namespace CenboGeneral
         /// <summary>是否信创</summary>
         [Description("是否信创")]
         public Boolean IsXinChuang { get; set; } = false;
-        /// <summary>是否服务器重启监听</summary>
-        [Description("是否服务器重启监听")]
-        public Boolean IsFwqRestartListen { get; set; } = false;
     }
 }
 

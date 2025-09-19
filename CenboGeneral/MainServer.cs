@@ -62,7 +62,7 @@ namespace CenboGeneral
             ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, $"Http端口监听成功{_httpServer.Port}", "开启服务");
 
             //10分钟检测一次
-            timergeneraldog = new TimerX(GeneralDog, null, 30 * 1000, 1000 * 60 * 10);
+            timergeneraldog = new TimerX(GeneralDog, null, 90 * 1000, 1000 * 60 * 10);
             ConsleWrite.ConsleWriteLine(ClassHelper.ClassName, ClassHelper.MethodName, "常规服务看守定时器(10分钟1次)开启成功", "开启服务");
 
             var timefwq = DateTime.Now.Date.AddHours(7);
